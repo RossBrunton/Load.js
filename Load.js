@@ -55,20 +55,20 @@ self.load = (function(self) {
 	var STATE_RUNNING = 3;
 	var STATE_RAN = 4;
 	
-    /** A package of this type is executable code
-     * 
-     * It is in a file which contains a call to "load.provide" with a package name and function. The function will be
-     * called when the package is required (not when it is provided), and the return value of that function will be the
-     * package's object.
-     * 
-     * The package's object will be the function itself before it is evaluated. Whether or not it is the function is
-     *  given by the state; if it is imported, it will be the function, if it is ran, it will be the object.
-     */
+	/** A package of this type is executable code
+	 * 
+	 * It is in a file which contains a call to "load.provide" with a package name and function. The function will be
+	 * called when the package is required (not when it is provided), and the return value of that function will be the
+	 * package's object.
+	 * 
+	 * The package's object will be the function itself before it is evaluated. Whether or not it is the function is
+	 *  given by the state; if it is imported, it will be the function, if it is ran, it will be the object.
+	 */
 	var TYPE_PACK = 0;
-    /** A package of this type is a string
-     * 
-     * It is in a file, which is downloaded via AJAX. The package object is a string with the contents of this file.
-     */
+	/** A package of this type is a string
+	 * 
+	 * It is in a file, which is downloaded via AJAX. The package object is a string with the contents of this file.
+	 */
 	var TYPE_RES = 1;
 	
 	var USE_THREADING = false;
@@ -888,7 +888,7 @@ self.load = (function(self) {
 				load.import(f);
 		}
 	};
-    
+	
 	return load;
 })(self);
 
