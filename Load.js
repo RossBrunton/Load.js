@@ -442,6 +442,7 @@ self.load = (function(self) {
 				_readies[name].push(fulfill);
 				
 				_addToImportSet(oldname);
+				_tryImport();
 			}else{
 				if(name.charAt(0) == ">") name = name.substring(1);
 				
@@ -567,8 +568,6 @@ self.load = (function(self) {
 				_addToImportSet(p.deps[i]);
 			}
 		}
-		
-		_tryImport();
 	};
 	
 	/** Looks through the import set, sees if any can be imported (have no unsatisfied dependancies), generates the
@@ -582,18 +581,19 @@ self.load = (function(self) {
 			return;
 		}
 		
-		var _packsagesToImport = [];
+		var _packagesToImport = [];
 		
 		//Generate the batch set
 		for(var i = 0; i < _importSet.length; i ++) {
 			if(_importSet[i].charAt(0) == "@") {
-				_packsagesToImport.push(_importSet[i]);
+				_packagesToImport.push(_importSet[i]);
 				_importSet.splice(i, 1);
 				i --;
 				continue;
 			}
 			
 			var now = _packs[_importSet[i]];
+			var nowName = _importSet[i];
 			
 			var okay = true;
 			for(var d = 0; d < now.deps.length; d ++) {
@@ -609,28 +609,40 @@ self.load = (function(self) {
 					// Check if they are from the same file
 					if(_packs[now.deps[d]].file != now.file) {
 						okay = false;
-						if(trace) console.log(now.file +" blocked by "+_packs[now.deps[d]].file);
+						if(trace)
+							console.log(
+								nowName + " ("+now.file+")"
+								+" depends on "
+								+now.deps[d] + " ("+_packs[now.deps[d]].file+")"
+							);
 						break;
 					}
 				}
 			}
 			
 			if(okay) {
-				if(now.state == STATE_NONE) _packsagesToImport.push(_importSet[i]);
+				if(now.state == STATE_NONE) _packagesToImport.push(_importSet[i]);
 				_importSet.splice(i, 1);
 				i --;
 			}
 		}
 		
 		//And then import them all
-		if(_packsagesToImport.length) console.log("%cImporting: "+_packsagesToImport.join(", "), "color:#999999");
+		if(_packagesToImport.length) console.log("%cImporting: "+_packagesToImport.join(", "), "color:#999999");
 		
-		for(var i = _packsagesToImport.length-1; i >= 0; i --) {
-			if(_packsagesToImport[i].charAt(0) == "@") {
-				_doImportFile(_packsagesToImport[i], TYPE_PACK);
+		for(var i = _packagesToImport.length-1; i >= 0; i --) {
+			if(_packagesToImport[i].charAt(0) == "@") {
+				_doImportFile(_packagesToImport[i], TYPE_PACK);
 			}else{
-				_doImportFile(_packs[_packsagesToImport[i]].file, _packs[_packsagesToImport[i]].type);
+				_doImportFile(_packs[_packagesToImport[i]].file, _packs[_packagesToImport[i]].type);
 			}
+		}
+		
+		// Check for problems
+		if(!_packagesToImport.length && _importSet.length && !trace) {
+			console.log("Dependency problem!");
+			console.log("This means you likely have a dependency loop somewhere.");
+			_tryImport(true);
 		}
 	}
 	
