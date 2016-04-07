@@ -146,6 +146,10 @@ self.load = (function(self) {
 	
 	
 	
+	// ----
+	// Multithreading
+	// ----
+	
 	// Set up multithreading
 	load.worker = !("document" in self) && !("window" in self);
 	
@@ -239,6 +243,42 @@ self.load = (function(self) {
 		}
 	}
 	
+	/** Submits a work order which will run on the next worker that becomes available.
+	 * 
+	 * The worker is the name of a package; this package must return a function which takes the "order" as input, and 
+	 *  returns the output in the form of a [object, properties to transfer] pair. This function will be run on a web
+	 *  worker and will be separate to the main page.
+	 * 
+	 * If `submitWorkOrder` is called from a worker, it just does it synchronously, rather than deferring it to another
+	 *  thread.
+	 * 
+	 * @param {string} worker The name of the worker package to do the work.
+	 * @param {*} order The data to send to this worker package's function.
+	 * @param {?array} copy An optional array of objects to transfer, rather than copy.
+	 * @return {Promise(*)} A promise that resolves to the output of the work order.
+	 * @since 0.0.21-alpha
+	 */
+	load.submitWorkOrder = function(worker, order, transfer) {
+		if(load.worker) {
+			return new Promise(function(f, r) {
+				load.import(worker).then(function(pack) {
+					var data = pack(order);
+					f(data[0]);
+				});
+			});
+		}else{
+			return new Promise(function(f, r) {
+				_workOrders.push([_workCounter++, worker, order, transfer]);
+				_workPromises.set(_workCounter-1, f);
+			});
+		}
+	};
+	
+	
+	// ----
+	// Providing Packages
+	// ----
+	
 	/** Marks that the namespace `name` has been provided, and associates a given object with it.
 	 *   This tells the engine to download the next file in the list,
 	 *   and it also creates the namespace object if it doesn't already exist.
@@ -327,39 +367,11 @@ self.load = (function(self) {
 		_tryImport();
 	};
 	
-	/** Adds a dependency.
-	 * 
-	 *  This tells the engine the file in which the namespaces are provided,
-	 *  and what other files must be imported before it.
-	 * 
-	 * @param {string} file The file name which the namespaces reside.
-	 * @param {array} provided An array of namespace names which are provided by the file.
-	 * @param {array} required An array of namespace names that are required for this file to run.
-	 *  These will be downloaded before this one if any provided namespaces are requested.
-	 * @param {integer=0} size The size of the file, in bytes. Optional.
-	 * @since 0.0.12-alpha
-	 */
-	load.addDependency = function(file, provided, required, size, type) {
-		if(!size) size = 0;
-		
-		for(var i = provided.length-1; i >= 0; i--) {
-			if(!_packs[provided[i]]
-			|| (_packs[provided[i]].state == STATE_NONE &&
-				(!(_packs[provided[i]].file in _files) || provided.length > _files[_packs[provided[i]].file][0].length))
-			){
-				_packs[provided[i]] = {file:file, state:STATE_NONE, deps:required, size:size, obj:undefined, type:type};
-			}
-		}
-		
-		// Add them to the workers as well
-		if(!this.worker) {
-			for(var w of _workers) {
-				w.postMessage(["_load_packss", Array.prototype.slice.call(arguments)]);
-			}
-		}
-		
-		_files[file] = [provided, required, false];
-	};
+	
+	
+	// ----
+	// Requiring Packages
+	// ----
 	
 	/** Marks the current file as requiring the specified namespace as a dependency, 
 	 *  used for generating dependancy information.
@@ -393,6 +405,32 @@ self.load = (function(self) {
 		}
 	};
 	
+	/** Marks the current file as requiring the specified resource as a dependency.
+	 * 
+	 * @param {string} name The path to the file to add.
+	 * @return {string} The string content of that resource.
+	 * @since 0.0.15-alpha
+	 */
+	load.requireResource = function(name) {
+		return load.require(name);
+	};
+	
+	/** Identical to `{@link load.require}` in operation, but the package won't be downloaded automatically.
+	 * 
+	 * @param {string} name The namespace to add as a dependency.
+	 * @param {?function(*)} onReady If the package isn't imported yet (via it beginning with ">" for example), this
+	 *  will be called with the package when it is.
+	 * @return {*} An object that is provided by that namespace.
+	 * @since 0.0.21-alpha
+	 */
+	load.suggest = load.require;
+	
+	
+	
+	// ----
+	// Running package Contents
+	// ----
+	
 	/** For code packages, this actually runs the code contained in their function, as if they were required by another
 	 * package.
 	 * 
@@ -425,25 +463,11 @@ self.load = (function(self) {
 		return _packs[name].obj;
 	};
 	
-	/** Marks the current file as requiring the specified resource as a dependency.
-	 * 
-	 * @param {string} name The path to the file to add.
-	 * @return {string} The string content of that resource.
-	 * @since 0.0.15-alpha
-	 */
-	load.requireResource = function(name) {
-		return load.require(name);
-	};
 	
-	/** Identical to `{@link load.require}` in operation, but the package won't be downloaded automatically.
-	 * 
-	 * @param {string} name The namespace to add as a dependency.
-	 * @param {?function(*)} onReady If the package isn't imported yet (via it beginning with ">" for example), this
-	 *  will be called with the package when it is.
-	 * @return {*} An object that is provided by that namespace.
-	 * @since 0.0.21-alpha
-	 */
-	load.suggest = load.require;
+	
+	// ----
+	// Importing Packages
+	// ----
 	
 	/** Imports a package and returns it.
 	 * 
@@ -472,96 +496,6 @@ self.load = (function(self) {
 				return fulfill(true);
 			}
 		});
-	};
-	
-	/** Imports all packages, usefull for debugging or something.
-	 * @since 0.0.15-alpha
-	 */
-	load.importAll = function() {
-		for(var f in _packs) {
-			load.import(f);
-		}
-	};
-	
-	/** Imports all packages that match a given regular expression.
-	 * @since 0.0.21-alpha
-	 */
-	load.importMatch = function(patt) {
-		for(var f in _packs) {
-			if(patt.test(f))
-				load.import(f);
-		}
-	};
-
-	/** Download a JSON containing an array of dependancies. These will be looped through,
-	 *  and the entries will be given to `{@link load.addDependency}`.
-	 * 
-	 * Each entry of the array must itself be an array of the form `[file, provided, required]`.
-	 * 
-	 * This returns a promise that resolves when the file is downloaded or fails to download.
-	 * @param {string} path The path to the JSON file.
-	 * @param {function()} callback Will be called when the file load is completed.
-	 * @param {function()} errorCallback Will be called if there is an error.
-	 * @returns {Promise(object)} A promise.
-	 * @since 0.0.15-alpha
-	 */
-	load.importList = function(path, callback, errorCallback) {
-		if(path in _depFiles) return Promise.resolve(_depFiles[path]);
-		
-		console.log("%cDownloading dependancy file "+path, "color:#999999");
-		
-		var pfunct = function(fullfill, reject) {
-			var union = function(data) {
-				if(callback) callback(data);
-				if(fullfill) fullfill(data);
-			}
-			
-			var unione = function(data) {
-				if(errorCallback) errorCallback(data);
-				if(reject) reject(data);
-			}
-			
-			_xhrGet(path).then(function(data) {
-				var relativePath = path.split("/").slice(0, -1).join("/")+"/";
-				
-				// Hack to get the absolute path
-				var a = document.createElement("a");
-				a.href = relativePath;
-				var absolutePath = a.href;
-				
-				if(typeof(data) == "string") data = JSON.parse(data);
-				
-				if(Array.isArray(data)) {
-					//Convert into new format
-					data = {"version":0, "packages":data};
-				}
-				
-				_depFiles[path] = data;
-				
-				var deps = data.packages;
-				for(var i = deps.length-1; i >= 0; i--) {
-					var now = deps[i]
-					
-					if(deps[i][0].indexOf(":") === -1 && deps[i][0][0] != "/") deps[i][0] = absolutePath+deps[i][0];
-					
-					var dlist = now[2];
-					load.addDependency(now[0], now[1], dlist, now[3], now[4]);
-				}
-				
-				if("dependencies" in data) {
-					return Promise.all(data.dependencies.map(function(e) {
-						return load.importList(e);
-					})).then(union.bind(undefined, data));
-				}else{
-					union(data);
-				}
-			}, function() {
-				console.error("Error getting import file, "+xhr.statusText);
-				unione(xhr);
-			});
-		}
-		
-		return new Promise(pfunct);
 	};
 
 	/** Given a package, if it has not been imported, it is added to `{@link load._importSet}` and this function is
@@ -744,36 +678,121 @@ self.load = (function(self) {
 		return false;
 	};
 	
-	/** Submits a work order which will run on the next worker that becomes available.
+	
+	
+	// ----
+	// Working with dependency files
+	// ----
+	
+	/** Adds a dependency.
 	 * 
-	 * The worker is the name of a package; this package must return a function which takes the "order" as input, and 
-	 *  returns the output in the form of a [object, properties to transfer] pair. This function will be run on a web
-	 *  worker and will be separate to the main page.
+	 *  This tells the engine the file in which the namespaces are provided,
+	 *  and what other files must be imported before it.
 	 * 
-	 * If `submitWorkOrder` is called from a worker, it just does it synchronously, rather than deferring it to another
-	 *  thread.
-	 * 
-	 * @param {string} worker The name of the worker package to do the work.
-	 * @param {*} order The data to send to this worker package's function.
-	 * @param {?array} copy An optional array of objects to transfer, rather than copy.
-	 * @return {Promise(*)} A promise that resolves to the output of the work order.
-	 * @since 0.0.21-alpha
+	 * @param {string} file The file name which the namespaces reside.
+	 * @param {array} provided An array of namespace names which are provided by the file.
+	 * @param {array} required An array of namespace names that are required for this file to run.
+	 *  These will be downloaded before this one if any provided namespaces are requested.
+	 * @param {integer=0} size The size of the file, in bytes. Optional.
+	 * @since 0.0.12-alpha
 	 */
-	load.submitWorkOrder = function(worker, order, transfer) {
-		if(load.worker) {
-			return new Promise(function(f, r) {
-				load.import(worker).then(function(pack) {
-					var data = pack(order);
-					f(data[0]);
-				});
-			});
-		}else{
-			return new Promise(function(f, r) {
-				_workOrders.push([_workCounter++, worker, order, transfer]);
-				_workPromises.set(_workCounter-1, f);
+	load.addDependency = function(file, provided, required, size, type) {
+		if(!size) size = 0;
+		
+		for(var i = provided.length-1; i >= 0; i--) {
+			if(!_packs[provided[i]]
+			|| (_packs[provided[i]].state == STATE_NONE &&
+				(!(_packs[provided[i]].file in _files) || provided.length > _files[_packs[provided[i]].file][0].length))
+			){
+				_packs[provided[i]] = {file:file, state:STATE_NONE, deps:required, size:size, obj:undefined, type:type};
+			}
+		}
+		
+		// Add them to the workers as well
+		if(!this.worker) {
+			for(var w of _workers) {
+				w.postMessage(["_load_packss", Array.prototype.slice.call(arguments)]);
+			}
+		}
+		
+		_files[file] = [provided, required, false];
+	};
+	
+	/** Download a JSON containing an array of dependancies. These will be looped through,
+	 *  and the entries will be given to `{@link load.addDependency}`.
+	 * 
+	 * Each entry of the array must itself be an array of the form `[file, provided, required]`.
+	 * 
+	 * This returns a promise that resolves when the file is downloaded or fails to download.
+	 * @param {string} path The path to the JSON file.
+	 * @param {function()} callback Will be called when the file load is completed.
+	 * @param {function()} errorCallback Will be called if there is an error.
+	 * @returns {Promise(object)} A promise.
+	 * @since 0.0.15-alpha
+	 */
+	load.importList = function(path, callback, errorCallback) {
+		if(path in _depFiles) return Promise.resolve(_depFiles[path]);
+		
+		console.log("%cDownloading dependancy file "+path, "color:#999999");
+		
+		var pfunct = function(fullfill, reject) {
+			var union = function(data) {
+				if(callback) callback(data);
+				if(fullfill) fullfill(data);
+			}
+			
+			var unione = function(data) {
+				if(errorCallback) errorCallback(data);
+				if(reject) reject(data);
+			}
+			
+			_xhrGet(path).then(function(data) {
+				var relativePath = path.split("/").slice(0, -1).join("/")+"/";
+				
+				// Hack to get the absolute path
+				var a = document.createElement("a");
+				a.href = relativePath;
+				var absolutePath = a.href;
+				
+				if(typeof(data) == "string") data = JSON.parse(data);
+				
+				if(Array.isArray(data)) {
+					//Convert into new format
+					data = {"version":0, "packages":data};
+				}
+				
+				_depFiles[path] = data;
+				
+				var deps = data.packages;
+				for(var i = deps.length-1; i >= 0; i--) {
+					var now = deps[i]
+					
+					if(deps[i][0].indexOf(":") === -1 && deps[i][0][0] != "/") deps[i][0] = absolutePath+deps[i][0];
+					
+					var dlist = now[2];
+					load.addDependency(now[0], now[1], dlist, now[3], now[4]);
+				}
+				
+				if("dependencies" in data) {
+					return Promise.all(data.dependencies.map(function(e) {
+						return load.importList(e);
+					})).then(union.bind(undefined, data));
+				}else{
+					union(data);
+				}
+			}, function() {
+				console.error("Error getting import file, "+xhr.statusText);
+				unione(xhr);
 			});
 		}
+		
+		return new Promise(pfunct);
 	};
+	
+	
+	// ----
+	// Error Handling
+	// ----
 	
 	/** Returns an array of errors; each element is a pair `[error object, errorEvent]`. `errorEvent` is an event object
 	 *  from the `onError` handler.
@@ -808,6 +827,17 @@ self.load = (function(self) {
 	};
 	load.ImportError.prototype = Object.create(Error.prototype);
 	
+	self.addEventListener("error", function(e) {
+		if(!e.error) return;
+		_uncaughtErrors.push([e.error, e]);
+		load.abort();
+	});
+	
+	
+	
+	// ----
+	// Bells and Whistles
+	// ----
 	/** Returns the total size of files that are being downloaded, if the deps file has this information.
 	 * @return {integer} The total download remaining, in kilobytes.
 	 * @private
@@ -826,13 +856,39 @@ self.load = (function(self) {
 		return ~~(sum/1024);
 	};
 	
-	self.addEventListener("error", function(e) {
-		if(!e.error) return;
-		_uncaughtErrors.push([e.error, e]);
-		load.abort();
-	});
 	
-    load._packs = _packs;
+	
+	// ----
+	// Shortcut Functions
+	// ----
+	
+	/** Invokes the debugger (via the `debugger` operator)
+	 * 
+	 * To get access to the local closure.
+	 */
+	load.debug = function() {
+		debugger;
+	};
+	
+	/** Imports all packages, useful for debugging or something.
+	 * @since 0.0.15-alpha
+	 */
+	load.importAll = function() {
+		for(var f in _packs) {
+			load.import(f);
+		}
+	};
+	
+	/** Imports all packages that match a given regular expression.
+	 * @since 0.0.21-alpha
+	 */
+	load.importMatch = function(patt) {
+		for(var f in _packs) {
+			if(patt.test(f))
+				load.import(f);
+		}
+	};
+    
 	return load;
 })(self);
 
