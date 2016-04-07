@@ -691,11 +691,12 @@ self.load = (function(self) {
 		}
 		
 		// Check for problems
-		if(!_packagesToImport.length && _importSet.length && !trace) {
+		// This can trigger while something is being downloaded, and other things are running
+		/*if(!_packagesToImport.length && _importSet.length && !trace) {
 			console.log("Dependency problem!");
 			console.log("This means you likely have a dependency loop somewhere.");
 			_tryImport(true);
-		}
+		}*/
 	}
 	
 	/** Adds the file to the HTML documents head in a script tag, actually importing the file.
