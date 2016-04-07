@@ -55,13 +55,6 @@ self.load = (function(self) {
 	var STATE_RUNNING = 3;
 	var STATE_RAN = 4;
 	
-	var NFILENAME = 0;
-	var NSTATE = 1;
-	var NDEPS = 2;
-	var NSIZE = 3;
-	var NOBJ = 4;
-	var NTYPE = 5;
-	
     /** A package of this type is executable code
      * 
      * It is in a file which contains a call to "load.provide" with a package name and function. The function will be
