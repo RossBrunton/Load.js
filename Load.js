@@ -32,13 +32,13 @@ self.load = (function(self) {
 
 	/** Contains all the dependancy information for the files.
 	 * 
-	 * Each key is an import name, and the value is an array.
-	 *  The first element is the filename that provides the file, 
-	 *  the second is a state value, as shown below, 
-	 *  the third is an array of all the dependancies of the namespace,
-	 *  the fourth is the size of the file
-	 *  the fifth is the thing that was provided,
-	 *  and the sixth is whether it is a script package or a resource
+	 * Each key is an import name, and the value is an object with the following properties:
+	 *  file: Filename that provides the file 
+	 *  state: A state value, as shown below
+	 *  deps: An array of all the dependancies of the namespace
+	 * 	size: The size of the file
+	 *  obj: The type dependant thing that is being provided
+	 *  type: The type of the package, see below
 	 * 
 	 * Possible values for the state are either 0 (not imported), 
 	 *  1 (currently in the proccess of importing) or 2 (successfully imported and ran).
@@ -216,10 +216,10 @@ self.load = (function(self) {
 		
 		//Set object and imported
 		if(name in _packs) {
-			_packs[name][NOBJ] = pack;
-			_packs[name][NSTATE] = STATE_IMPORTED;
+			_packs[name].obj = pack;
+			_packs[name].state = STATE_IMPORTED;
 		}else{
-			_packs[name] = ["", STATE_IMPORTED, [], 0, pack, TYPE_PACK];
+			_packs[name] = {file:"about:blank", state:STATE_IMPORTED, deps:[], size:0, obj:pack, type:TYPE_PACK};
 		}
 		
 		//Seal objects
@@ -258,14 +258,14 @@ self.load = (function(self) {
 		
 		//Set object and imported
 		if(name in _packs) {
-			_packs[name][NOBJ] = pack;
-			_packs[name][NSTATE] = STATE_RAN;
+			_packs[name].obj = pack;
+			_packs[name].state = STATE_RAN;
 		}else{
-			_packs[name] = ["", STATE_RAN, [], 0, data, TYPE_RES];
+			_packs[name] = {file:"about:blank", state:STATE_RAN, deps:[], size:0, obj:data, type:TYPE_RES};
 		}
 		
 		//Set object
-		_packs[name][NOBJ] = data;
+		_packs[name].obj = data;
 		
 		//Fire all the functions
 		if(name in _readies) {
@@ -300,10 +300,10 @@ self.load = (function(self) {
 		
 		for(var i = provided.length-1; i >= 0; i--) {
 			if(!_packs[provided[i]]
-			|| (_packs[provided[i]][NSTATE] == STATE_NONE &&
-				(!(_packs[provided[i]][NFILENAME] in _files) || provided.length > _files[_packs[provided[i]][0]][0].length))
+			|| (_packs[provided[i]].state == STATE_NONE &&
+				(!(_packs[provided[i]].file in _files) || provided.length > _files[_packs[provided[i]].file][0].length))
 			){
-				_packs[provided[i]] = [file, STATE_NONE, required, size, undefined, type];
+				_packs[provided[i]] = {file:file, state:STATE_NONE, deps:required, size:size, obj:undefined, type:type};
 			}
 		}
 		
@@ -333,7 +333,7 @@ self.load = (function(self) {
 		if(name.charAt(0) == ">") name = name.substring(1);
 		
 		if(onReady) {
-			if(name in _packs && _packs[name][NSTATE] == STATE_IMPORTING) {
+			if(name in _packs && _packs[name].state == STATE_IMPORTING) {
 				onReady(load.require(name));
 			}else{
 				if(!(name in _readies)) _readies[name] = [];
@@ -342,11 +342,11 @@ self.load = (function(self) {
 		}
 		
 		if(name in _packs) {
-			if(_packs[name][NSTATE] == STATE_IMPORTED) {
-				_packs[name][NSTATE] = STATE_RAN;
-				_packs[name][NOBJ] = _packs[name][NOBJ](self);
+			if(_packs[name].state == STATE_IMPORTED) {
+				_packs[name].state = STATE_RAN;
+				_packs[name].obj = _packs[name].obj(self);
 			}
-			return _packs[name][NOBJ];
+			return _packs[name].obj;
 		}
 	};
 	
@@ -382,7 +382,7 @@ self.load = (function(self) {
 		}else{
 			if(name.charAt(0) == ">") name = name.substring(1);
 			
-			return _packs[name][NOBJ];
+			return _packs[name].obj;
 		}
 	};
 	
@@ -409,7 +409,7 @@ self.load = (function(self) {
 			}else{
 				if(name.charAt(0) == ">") name = name.substring(1);
 				
-				return fulfill(_packs[name][NOBJ]);
+				return fulfill(_packs[name].obj);
 			}
 		});
 	};
@@ -539,18 +539,18 @@ self.load = (function(self) {
 			throw new load.DependencyError(pack + " required but not found.");
 			return;
 		}
-		if(_packs[pack][NSTATE] !== STATE_NONE) return;
+		if(_packs[pack].state !== STATE_NONE) return;
 		
 		_importSet.push(pack);
 		var p = _packs[pack];
 		
-		for(var i = 0; i < p[NDEPS].length; i ++) {
-			if(p[NDEPS][i].charAt(0) == ">") {
-				_addToImportSet(p[NDEPS][i].substring(1));
-			}else if(p[2][i].charAt(0) == "@") {
-				_importSet.push(p[NDEPS][i]);
+		for(var i = 0; i < p.deps.length; i ++) {
+			if(p.deps[i].charAt(0) == ">") {
+				_addToImportSet(p.deps[i].substring(1));
+			}else if(p.deps[i].charAt(0) == "@") {
+				_importSet.push(p.deps[i]);
 			}else{
-				_addToImportSet(p[NDEPS][i]);
+				_addToImportSet(p.deps[i]);
 			}
 		}
 		
@@ -582,27 +582,27 @@ self.load = (function(self) {
 			var now = _packs[_importSet[i]];
 			
 			var okay = true;
-			for(var d = 0; d < now[NDEPS].length; d ++) {
-				if(now[NDEPS][d].charAt(0) == ">") {
+			for(var d = 0; d < now.deps.length; d ++) {
+				if(now.deps[d].charAt(0) == ">") {
 					//Okay
-				}else if(now[NDEPS][d].charAt(0) == "@") {
+				}else if(now.deps[d].charAt(0) == "@") {
 					//Also Okay
-				}else if(!(now[NDEPS][d] in _packs)) {
-					console.warn(now[NFILENAME] + " depends on "+now[NDEPS][d]+", which is not available.");
+				}else if(!(now.deps[d] in _packs)) {
+					console.warn(now.file + " depends on "+now.deps[d]+", which is not available.");
 					okay = false;
 					break;
-				}else if(_packs[now[NDEPS][d]][NSTATE] < STATE_IMPORTED) {
+				}else if(_packs[now.deps[d]].state < STATE_IMPORTED) {
 					// Check if they are from the same file
-					if(_packs[now[NDEPS][d]][NFILENAME] != now[NFILENAME]) {
+					if(_packs[now.deps[d]].file != now.file) {
 						okay = false;
-						if(trace) console.log(now[NFILENAME] +" blocked by "+_packs[now[NDEPS][d]][NFILENAME]);
+						if(trace) console.log(now.file +" blocked by "+_packs[now.deps[d]].file);
 						break;
 					}
 				}
 			}
 			
 			if(okay) {
-				if(now[NSTATE] == STATE_NONE) _packsagesToImport.push(_importSet[i]);
+				if(now.state == STATE_NONE) _packsagesToImport.push(_importSet[i]);
 				_importSet.splice(i, 1);
 				i --;
 			}
@@ -615,7 +615,7 @@ self.load = (function(self) {
 			if(_packsagesToImport[i].charAt(0) == "@") {
 				_doImportFile(_packsagesToImport[i], TYPE_PACK);
 			}else{
-				_doImportFile(_packs[_packsagesToImport[i]][NFILENAME], _packs[_packsagesToImport[i]][NTYPE]);
+				_doImportFile(_packs[_packsagesToImport[i]].file, _packs[_packsagesToImport[i]].type);
 			}
 		}
 	}
@@ -640,7 +640,7 @@ self.load = (function(self) {
 			f[2] = true;
 			
 			for(var i = 0; i < f[0].length; i ++) {
-				_packs[f[0][i]][NSTATE] = STATE_IMPORTING;
+				_packs[f[0][i]].state = STATE_IMPORTING;
 			}
 			
 			if(!("document" in self) && !("window" in self)) {
@@ -658,7 +658,7 @@ self.load = (function(self) {
 			var f = _files[file];
 			
 			for(var i = 0; i < f[0].length; i ++) {
-				_packs[f[0][i]][NSTATE] = STATE_IMPORTING;
+				_packs[f[0][i]].state = STATE_IMPORTING;
 			}
 			
 			var xhr = new XMLHttpRequest();
@@ -668,8 +668,8 @@ self.load = (function(self) {
 					var content = xhr.response;
 					
 					for(var i = 0; i < f[0].length; i ++) {
-						_packs[f[0][i]][NSTATE] = STATE_RAN;
-						_packs[f[0][i]][NOBJ] = content;
+						_packs[f[0][i]].state = STATE_RAN;
+						_packs[f[0][i]].obj = content;
 					}
 					
 					_tryImport();
@@ -697,7 +697,7 @@ self.load = (function(self) {
 	 * @since 0.0.20-alpha
 	 */
 	load.isImported = function(name) {
-		if(name in _packs && _packs[name][1] >= STATE_RAN) {
+		if(name in _packs && _packs[name].state >= STATE_RAN) {
 			return true;
 		}
 		
@@ -778,8 +778,8 @@ self.load = (function(self) {
 		var sum = 0;
 		for(var i = _importSet.length-1; i >= 0; i --) {
 			if(_packs[_importSet[i]].length > 3
-			&& seen.indexOf(_packs[_importSet[i]][0]) === -1) {
-				sum += _packs[_importSet[i]][3];
+			&& seen.indexOf(_packs[_importSet[i]].file) === -1) {
+				sum += _packs[_importSet[i]].size;
 				seen[seen.length] = _packs[_importSet[i]][0];
 			}
 		};
