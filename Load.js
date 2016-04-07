@@ -889,6 +889,31 @@ self.load = (function(self) {
 		}
 	};
 	
+	/** Imports and evaluates the given package.
+	 * 
+	 * Sugar for load.import(pack).then(function() {load.evaluate(pack);})
+	 * 
+	 * @param {string} pack The package to import and then run.
+	 */
+	load.importAndEvaluate = function(pack) {
+		load.import(pack).then(function() {
+			load.evaluate(pack);
+		});
+	};
+	
+	/** Downloads the dependency file, then imports and evaluates the given package.
+	 * 
+	 * Sugar for load.loadDeps(list).then(function() {load.importAndEvaluate(pack);}).
+	 * 
+	 * Stands for "load-import-evaluate"
+	 * 
+	 * @param {string} list The package list to import.
+	 * @param {string} pack The package to import and then run.
+	 */
+	load.lie = function(list, pack) {
+		load.loadDeps(list).then(function() {load.importAndEvaluate(pack);});
+	};
+	
 	return load;
 })(self);
 
