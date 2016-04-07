@@ -46,7 +46,7 @@ self.load = (function(self) {
 	 * @private
 	 * @since 0.0.12-alpha
 	 */
-	var _names = {};
+	var _packs = {};
 	
 	var STATE_NONE = 0;
 	var STATE_IMPORTING = 1;
@@ -110,7 +110,7 @@ self.load = (function(self) {
 		// A worker
 		
 		self.onmessage = function(e) {
-			if(e.data[0] == "_load_packs") {
+			if(e.data[0] == "_load_packss") {
 				// Add package information
 				load.addDependency.apply(load, e.data[1]);
 			}else{
@@ -215,11 +215,11 @@ self.load = (function(self) {
 		if(!options) options = {};
 		
 		//Set object and imported
-		if(name in _names) {
-			_names[name][NOBJ] = pack;
-			_names[name][NSTATE] = STATE_IMPORTED;
+		if(name in _packs) {
+			_packs[name][NOBJ] = pack;
+			_packs[name][NSTATE] = STATE_IMPORTED;
 		}else{
-			_names[name] = ["", STATE_IMPORTED, [], 0, pack, TYPE_PACK];
+			_packs[name] = ["", STATE_IMPORTED, [], 0, pack, TYPE_PACK];
 		}
 		
 		//Seal objects
@@ -257,15 +257,15 @@ self.load = (function(self) {
 		console.log("Provided resource "+name);
 		
 		//Set object and imported
-		if(name in _names) {
-			_names[name][NOBJ] = pack;
-			_names[name][NSTATE] = STATE_RAN;
+		if(name in _packs) {
+			_packs[name][NOBJ] = pack;
+			_packs[name][NSTATE] = STATE_RAN;
 		}else{
-			_names[name] = ["", STATE_RAN, [], 0, data, TYPE_RES];
+			_packs[name] = ["", STATE_RAN, [], 0, data, TYPE_RES];
 		}
 		
 		//Set object
-		_names[name][NOBJ] = data;
+		_packs[name][NOBJ] = data;
 		
 		//Fire all the functions
 		if(name in _readies) {
@@ -299,18 +299,18 @@ self.load = (function(self) {
 		if(!size) size = 0;
 		
 		for(var i = provided.length-1; i >= 0; i--) {
-			if(!_names[provided[i]]
-			|| (_names[provided[i]][NSTATE] == STATE_NONE &&
-				(!(_names[provided[i]][NFILENAME] in _files) || provided.length > _files[_names[provided[i]][0]][0].length))
+			if(!_packs[provided[i]]
+			|| (_packs[provided[i]][NSTATE] == STATE_NONE &&
+				(!(_packs[provided[i]][NFILENAME] in _files) || provided.length > _files[_packs[provided[i]][0]][0].length))
 			){
-				_names[provided[i]] = [file, STATE_NONE, required, size, undefined, type];
+				_packs[provided[i]] = [file, STATE_NONE, required, size, undefined, type];
 			}
 		}
 		
 		// Add them to the workers as well
 		if(!this.worker) {
 			for(var w of _workers) {
-				w.postMessage(["_load_packs", Array.prototype.slice.call(arguments)]);
+				w.postMessage(["_load_packss", Array.prototype.slice.call(arguments)]);
 			}
 		}
 		
@@ -333,7 +333,7 @@ self.load = (function(self) {
 		if(name.charAt(0) == ">") name = name.substring(1);
 		
 		if(onReady) {
-			if(name in _names && _names[name][NSTATE] == STATE_IMPORTING) {
+			if(name in _packs && _packs[name][NSTATE] == STATE_IMPORTING) {
 				onReady(load.require(name));
 			}else{
 				if(!(name in _readies)) _readies[name] = [];
@@ -341,12 +341,12 @@ self.load = (function(self) {
 			}
 		}
 		
-		if(name in _names) {
-			if(_names[name][NSTATE] == STATE_IMPORTED) {
-				_names[name][NSTATE] = STATE_RAN;
-				_names[name][NOBJ] = _names[name][NOBJ](self);
+		if(name in _packs) {
+			if(_packs[name][NSTATE] == STATE_IMPORTED) {
+				_packs[name][NSTATE] = STATE_RAN;
+				_packs[name][NOBJ] = _packs[name][NOBJ](self);
 			}
-			return _names[name][NOBJ];
+			return _packs[name][NOBJ];
 		}
 	};
 	
@@ -382,7 +382,7 @@ self.load = (function(self) {
 		}else{
 			if(name.charAt(0) == ">") name = name.substring(1);
 			
-			return _names[name][NOBJ];
+			return _packs[name][NOBJ];
 		}
 	};
 	
@@ -409,7 +409,7 @@ self.load = (function(self) {
 			}else{
 				if(name.charAt(0) == ">") name = name.substring(1);
 				
-				return fulfill(_names[name][NOBJ]);
+				return fulfill(_packs[name][NOBJ]);
 			}
 		});
 	};
@@ -418,7 +418,7 @@ self.load = (function(self) {
 	 * @since 0.0.15-alpha
 	 */
 	load.importAll = function() {
-		for(var f in _names) {
+		for(var f in _packs) {
 			load.import(f);
 		}
 	};
@@ -427,7 +427,7 @@ self.load = (function(self) {
 	 * @since 0.0.21-alpha
 	 */
 	load.importMatch = function(patt) {
-		for(var f in _names) {
+		for(var f in _packs) {
 			if(patt.test(f))
 				load.import(f);
 		}
@@ -535,14 +535,14 @@ self.load = (function(self) {
 	 */
 	var _addToImportSet = function(pack) {
 		if(_importSet.indexOf(pack) !== -1) return;
-		if(!(pack in _names)) {
+		if(!(pack in _packs)) {
 			throw new load.DependencyError(pack + " required but not found.");
 			return;
 		}
-		if(_names[pack][NSTATE] !== STATE_NONE) return;
+		if(_packs[pack][NSTATE] !== STATE_NONE) return;
 		
 		_importSet.push(pack);
-		var p = _names[pack];
+		var p = _packs[pack];
 		
 		for(var i = 0; i < p[NDEPS].length; i ++) {
 			if(p[NDEPS][i].charAt(0) == ">") {
@@ -568,18 +568,18 @@ self.load = (function(self) {
 			return;
 		}
 		
-		var _packagesToImport = [];
+		var _packsagesToImport = [];
 		
 		//Generate the batch set
 		for(var i = 0; i < _importSet.length; i ++) {
 			if(_importSet[i].charAt(0) == "@") {
-				_packagesToImport.push(_importSet[i]);
+				_packsagesToImport.push(_importSet[i]);
 				_importSet.splice(i, 1);
 				i --;
 				continue;
 			}
 			
-			var now = _names[_importSet[i]];
+			var now = _packs[_importSet[i]];
 			
 			var okay = true;
 			for(var d = 0; d < now[NDEPS].length; d ++) {
@@ -587,35 +587,35 @@ self.load = (function(self) {
 					//Okay
 				}else if(now[NDEPS][d].charAt(0) == "@") {
 					//Also Okay
-				}else if(!(now[NDEPS][d] in _names)) {
+				}else if(!(now[NDEPS][d] in _packs)) {
 					console.warn(now[NFILENAME] + " depends on "+now[NDEPS][d]+", which is not available.");
 					okay = false;
 					break;
-				}else if(_names[now[NDEPS][d]][NSTATE] < STATE_IMPORTED) {
+				}else if(_packs[now[NDEPS][d]][NSTATE] < STATE_IMPORTED) {
 					// Check if they are from the same file
-					if(_names[now[NDEPS][d]][NFILENAME] != now[NFILENAME]) {
+					if(_packs[now[NDEPS][d]][NFILENAME] != now[NFILENAME]) {
 						okay = false;
-						if(trace) console.log(now[NFILENAME] +" blocked by "+_names[now[NDEPS][d]][NFILENAME]);
+						if(trace) console.log(now[NFILENAME] +" blocked by "+_packs[now[NDEPS][d]][NFILENAME]);
 						break;
 					}
 				}
 			}
 			
 			if(okay) {
-				if(now[NSTATE] == STATE_NONE) _packagesToImport.push(_importSet[i]);
+				if(now[NSTATE] == STATE_NONE) _packsagesToImport.push(_importSet[i]);
 				_importSet.splice(i, 1);
 				i --;
 			}
 		}
 		
 		//And then import them all
-		if(_packagesToImport.length) console.log("%cImporting: "+_packagesToImport.join(", "), "color:#999999");
+		if(_packsagesToImport.length) console.log("%cImporting: "+_packsagesToImport.join(", "), "color:#999999");
 		
-		for(var i = _packagesToImport.length-1; i >= 0; i --) {
-			if(_packagesToImport[i].charAt(0) == "@") {
-				_doImportFile(_packagesToImport[i], TYPE_PACK);
+		for(var i = _packsagesToImport.length-1; i >= 0; i --) {
+			if(_packsagesToImport[i].charAt(0) == "@") {
+				_doImportFile(_packsagesToImport[i], TYPE_PACK);
 			}else{
-				_doImportFile(_names[_packagesToImport[i]][NFILENAME], _names[_packagesToImport[i]][NTYPE]);
+				_doImportFile(_packs[_packsagesToImport[i]][NFILENAME], _packs[_packsagesToImport[i]][NTYPE]);
 			}
 		}
 	}
@@ -640,7 +640,7 @@ self.load = (function(self) {
 			f[2] = true;
 			
 			for(var i = 0; i < f[0].length; i ++) {
-				_names[f[0][i]][NSTATE] = STATE_IMPORTING;
+				_packs[f[0][i]][NSTATE] = STATE_IMPORTING;
 			}
 			
 			if(!("document" in self) && !("window" in self)) {
@@ -658,7 +658,7 @@ self.load = (function(self) {
 			var f = _files[file];
 			
 			for(var i = 0; i < f[0].length; i ++) {
-				_names[f[0][i]][NSTATE] = STATE_IMPORTING;
+				_packs[f[0][i]][NSTATE] = STATE_IMPORTING;
 			}
 			
 			var xhr = new XMLHttpRequest();
@@ -668,8 +668,8 @@ self.load = (function(self) {
 					var content = xhr.response;
 					
 					for(var i = 0; i < f[0].length; i ++) {
-						_names[f[0][i]][NSTATE] = STATE_RAN;
-						_names[f[0][i]][NOBJ] = content;
+						_packs[f[0][i]][NSTATE] = STATE_RAN;
+						_packs[f[0][i]][NOBJ] = content;
 					}
 					
 					_tryImport();
@@ -697,7 +697,7 @@ self.load = (function(self) {
 	 * @since 0.0.20-alpha
 	 */
 	load.isImported = function(name) {
-		if(name in _names && _names[name][1] >= STATE_RAN) {
+		if(name in _packs && _packs[name][1] >= STATE_RAN) {
 			return true;
 		}
 		
@@ -777,10 +777,10 @@ self.load = (function(self) {
 		var seen = [];
 		var sum = 0;
 		for(var i = _importSet.length-1; i >= 0; i --) {
-			if(_names[_importSet[i]].length > 3
-			&& seen.indexOf(_names[_importSet[i]][0]) === -1) {
-				sum += _names[_importSet[i]][3];
-				seen[seen.length] = _names[_importSet[i]][0];
+			if(_packs[_importSet[i]].length > 3
+			&& seen.indexOf(_packs[_importSet[i]][0]) === -1) {
+				sum += _packs[_importSet[i]][3];
+				seen[seen.length] = _packs[_importSet[i]][0];
 			}
 		};
 		return ~~(sum/1024);
