@@ -917,5 +917,4 @@ self.load = (function(self) {
 	return load;
 })(self);
 
-load.addDependency("", ["load"], [], 0);
-load.provide("load", load);
+load.provide("load", function(self) {return load;});
