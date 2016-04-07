@@ -445,22 +445,6 @@ self.load = (function(self) {
 	 */
 	load.suggest = load.require;
 	
-	/** Returns a package that has been previously imported. If the package has not been imported, this returns
-	 *  undefined and no attempt is made to import the package.
-	 * @param {string} name The package to import, as a string name.
-	 * @return {promise(*)} A promise that fulfills to the package if it has been imported.
-	 * @since 0.0.15-alpha
-	 */
-	load.getPackage = function(name) {
-		if(!load.isImported(name)) {
-			return undefined;
-		}else{
-			if(name.charAt(0) == ">") name = name.substring(1);
-			
-			return _packs[name].obj;
-		}
-	};
-	
 	/** Imports a package and returns it.
 	 * 
 	 * The package must have been previously registered using `addDependency` or `importList`.
