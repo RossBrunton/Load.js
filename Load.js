@@ -51,7 +51,8 @@ self.load = (function(self) {
 	var STATE_NONE = 0;
 	var STATE_IMPORTING = 1;
 	var STATE_IMPORTED = 2;
-	var STATE_RAN = 3;
+	var STATE_RUNNING = 3;
+	var STATE_RAN = 4;
 	
 	var NFILENAME = 0;
 	var NSTATE = 1;
@@ -65,6 +66,9 @@ self.load = (function(self) {
      * It is in a file which contains a call to "load.provide" with a package name and function. The function will be
      * called when the package is required (not when it is provided), and the return value of that function will be the
      * package's object.
+     * 
+     * The package's object will be the function itself before it is evaluated. Whether or not it is the function is
+     *  given by the state; if it is imported, it will be the function, if it is ran, it will be the object.
      */
 	var TYPE_PACK = 0;
     /** A package of this type is a string
@@ -75,12 +79,23 @@ self.load = (function(self) {
 	
 	var USE_THREADING = false;
 	
-	/** The functions that will be called when the given namespace is imported.
-	 * @type array
+	/** The functions that will be called after the given package is evaluated.
+	 * @type object
 	 * @private
 	 * @since 0.0.21-alpha
 	 */
 	var _readies = {};
+	
+	/** The functions that will be called after the given package is downoladed.
+	 * @type object
+	 * @private
+	 * @since 0.0.21-alpha
+	 */
+	var _onImport = {};
+	
+	var _defers = {};
+	
+	var _currentEval = null;
 	
 	/** An object containing the files that can be imported. Key is the file path, first value is an array of the
 	 *  packages it provides, second is an array of packages it depends on, and third is a boolean saying whether the
@@ -140,7 +155,7 @@ self.load = (function(self) {
 	
 	
 	// Set up multithreading
-	load.worker = !("document" in self) && !("window" in self)
+	load.worker = !("document" in self) && !("window" in self);
 	
 	if(load.worker) {
 		// A worker
@@ -258,6 +273,15 @@ self.load = (function(self) {
 			_packs[name] = {file:"about:blank", state:STATE_IMPORTED, deps:[], size:0, obj:pack, type:TYPE_PACK};
 		}
 		
+		//Fire all the onImport handlers
+		if(name in _onImport) {
+			for(var i = 0; i < _onImport[name].length; i ++) {
+				_onImport[name][i](true);
+			}
+			
+			_onImport[name] = [];
+		}
+		
 		//Seal objects
 		if(pack && (!("noSeal" in options) || !options.noSeal)) {
 			Object.seal(pack);
@@ -271,18 +295,6 @@ self.load = (function(self) {
 					if("prototype" in pack[v]) Object.seal(pack[v].prototype);
 				});
 			}
-		}
-		
-		//Fire all the functions
-		if(name in _readies) {
-			for(var i = 0; i < _readies[name].length; i ++) {
-				_readies[name][i](pack);
-			}
-		}
-		
-		//Fire Event
-		if(load.onProvide) {
-			setTimeout(load.onProvide.fire.bind(load.onProvide, {"package":name}, name), 1);
 		}
 		
 		// And try to import more if possible
@@ -300,20 +312,19 @@ self.load = (function(self) {
 			_packs[name] = {file:"about:blank", state:STATE_RAN, deps:[], size:0, obj:data, type:TYPE_RES};
 		}
 		
+		//Fire all the onImport handlers
+		if(name in _onImport) {
+			for(var i = 0; i < _onImport[name].length; i ++) {
+				_onImport[name][i](true);
+			}
+			
+			_onImport[name] = [];
+		}
+		
 		//Set object
 		_packs[name].obj = data;
 		
-		//Fire all the functions
-		if(name in _readies) {
-			for(var i = 0; i < _readies[name].length; i ++) {
-				_readies[name][i](pack);
-			}
-		}
-		
-		//Fire Event
-		if(load.onProvide) {
-			setTimeout(load.onProvide.fire.bind(load.onProvide, {"package":name}, name), 1);
-		}
+		load.evaluate(name);
 		
 		// And try to import more if possible
 		_tryImport();
@@ -366,10 +377,11 @@ self.load = (function(self) {
 	 * @since 0.0.15-alpha
 	 */
 	load.require = function(name, onReady) {
+		var defer = name.charAt(0) == ">";
 		if(name.charAt(0) == ">") name = name.substring(1);
 		
 		if(onReady) {
-			if(name in _packs && _packs[name].state == STATE_IMPORTING) {
+			if(name in _packs && _packs[name].state >= STATE_RAN) {
 				onReady(load.require(name));
 			}else{
 				if(!(name in _readies)) _readies[name] = [];
@@ -377,13 +389,53 @@ self.load = (function(self) {
 			}
 		}
 		
-		if(name in _packs) {
-			if(_packs[name].state == STATE_IMPORTED) {
-				_packs[name].state = STATE_RAN;
-				_packs[name].obj = _packs[name].obj(self);
-			}
-			return _packs[name].obj;
+		if(name in _packs && !defer) {
+			return load.evaluate(name);
+		}else{
+			if(!(_currentEval in _defers)) _defers[_currentEval] = [];
+			_defers[_currentEval].push(name);
 		}
+	};
+	
+	/** For code packages, this actually runs the code contained in their function, as if they were required by another
+	 * package.
+	 * 
+	 * If it is already evaluated, it is not evaluated again.
+	 * 
+	 * @param {string} pack The package name.
+	 * @return {*} The package's value.
+	 */
+	load.evaluate = function(name) {
+		if(_packs[name].state == STATE_RUNNING) return;
+		
+		if(_packs[name].state == STATE_IMPORTED && _packs[name].type == TYPE_PACK) {
+			var _oldCur = _currentEval;
+			_currentEval = name;
+			_packs[name].state = STATE_RUNNING;
+			_packs[name].obj = _packs[name].obj(self);
+			_packs[name].state = STATE_RAN;
+			_currentEval = _oldCur;
+		}
+		
+		//Fire all the functions
+		if(name in _readies) {
+			for(var i = 0; i < _readies[name].length; i ++) {
+				_readies[name][i](_packs[name].obj);
+			}
+			
+			_readies[name] = [];
+		}
+		
+		// Now do the defered ones
+		if(name in _defers) {
+			for(var i = 0; i < _defers[name].length; i ++) {
+				load.evaluate(_defers[name][i]);
+			}
+			
+			_defers[name] = [];
+		}
+		
+		return _packs[name].obj;
 	};
 	
 	/** Marks the current file as requiring the specified resource as a dependency.
@@ -429,7 +481,7 @@ self.load = (function(self) {
 	 * The namespace will NOT be immediately available after this function call unless it has already been imported
 	 *  (in which case the call does not import anything else).
 	 * @param {string} name The package to import, as a string name.
-	 * @return {promise(*)} A promise that fulfills to the package if it has been imported.
+	 * @return {promise(*)} A promise that fulfills to true when the package is imported
 	 * @since 0.0.15-alpha
 	 */
 	load.import = function(name) {
@@ -438,15 +490,15 @@ self.load = (function(self) {
 				var oldname = name;
 				if(name.charAt(0) == ">") name = name.substring(1);
 				
-				if(!(name in _readies)) _readies[name] = [];
-				_readies[name].push(fulfill);
+				if(!(name in _onImport)) _onImport[name] = [];
+				_onImport[name].push(fulfill);
 				
 				_addToImportSet(oldname);
 				_tryImport();
 			}else{
 				if(name.charAt(0) == ">") name = name.substring(1);
 				
-				return fulfill(_packs[name].obj);
+				return fulfill(true);
 			}
 		});
 	};

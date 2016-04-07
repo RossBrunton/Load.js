@@ -8,8 +8,9 @@
         
         <script>
             load.importList("./deps.json").then(function() {
-                load.import("test.l1").then(function() {
-                    load.require("test.l1");
+                load.import("test.a").then(function() {
+                    console.log("Imported");
+                    load.evaluate("test.b");
                 })
             });
         </script>
