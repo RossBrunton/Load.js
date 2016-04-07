@@ -471,7 +471,7 @@ self.load = (function(self) {
 	
 	/** Imports a package and returns it.
 	 * 
-	 * The package must have been previously registered using `addDependency` or `importList`.
+	 * The package must have been previously registered using `addDependency` or `loadDeps`.
 	 * 
 	 * The namespace will NOT be immediately available after this function call unless it has already been imported
 	 *  (in which case the call does not import anything else).
@@ -730,7 +730,7 @@ self.load = (function(self) {
 	 * @returns {Promise(object)} A promise.
 	 * @since 0.0.15-alpha
 	 */
-	load.importList = function(path, callback, errorCallback) {
+	load.loadDeps = function(path, callback, errorCallback) {
 		if(path in _depFiles) return Promise.resolve(_depFiles[path]);
 		
 		console.log("%cDownloading dependancy file "+path, "color:#999999");
@@ -775,7 +775,7 @@ self.load = (function(self) {
 				
 				if("dependencies" in data) {
 					return Promise.all(data.dependencies.map(function(e) {
-						return load.importList(e);
+						return load.loadDeps(e);
 					})).then(union.bind(undefined, data));
 				}else{
 					union(data);

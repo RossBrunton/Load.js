@@ -7,11 +7,8 @@
         <script src='../Load.js'></script>
         
         <script>
-            load.importList("./deps.json").then(function() {
-                load.import("test.l3").then(function() {
-                    console.log("Imported");
-                    load.evaluate("test.l3");
-                })
+            load.loadDeps("./deps.json").then(function() {
+                load.importAndEvaluate("test.l3");
             });
         </script>
     </head>
