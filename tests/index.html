@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>Test</title>
+        
+        <script src='../Load.js'></script>
+        
+        <script>
+            load.importList("./deps.json").then(function() {
+                load.import("test.b").then(function() {
+                    load.require("test.b");
+                })
+            });
+        </script>
+    </head>
+    
+    <body>
+    
+    </body>
+</html>
