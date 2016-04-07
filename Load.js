@@ -39,6 +39,7 @@ self.load = (function(self) {
 	 * 	size: The size of the file
 	 *  obj: The type dependant thing that is being provided
 	 *  type: The type of the package, see below
+	 *  evalOnImport: For script packages only, run as soon as imported
 	 * 
 	 * Possible values for the state are either 0 (not imported), 
 	 *  1 (currently in the proccess of importing) or 2 (successfully imported and ran).
@@ -92,8 +93,6 @@ self.load = (function(self) {
 	 * @since 0.0.21-alpha
 	 */
 	var _onImport = {};
-	
-	var _defers = {};
 	
 	var _currentEval = null;
 	
@@ -282,6 +281,11 @@ self.load = (function(self) {
 			_onImport[name] = [];
 		}
 		
+		// Evaluate if we need to
+		if(_packs[name].evalOnImport) {
+			load.evaluate(name);
+		}
+		
 		//Seal objects
 		if(pack && (!("noSeal" in options) || !options.noSeal)) {
 			Object.seal(pack);
@@ -392,8 +396,7 @@ self.load = (function(self) {
 		if(name in _packs && !defer) {
 			return load.evaluate(name);
 		}else{
-			if(!(_currentEval in _defers)) _defers[_currentEval] = [];
-			_defers[_currentEval].push(name);
+			_packs[name].evalOnImport = true;
 		}
 	};
 	
@@ -424,15 +427,6 @@ self.load = (function(self) {
 			}
 			
 			_readies[name] = [];
-		}
-		
-		// Now do the defered ones
-		if(name in _defers) {
-			for(var i = 0; i < _defers[name].length; i ++) {
-				load.evaluate(_defers[name][i]);
-			}
-			
-			_defers[name] = [];
 		}
 		
 		return _packs[name].obj;
