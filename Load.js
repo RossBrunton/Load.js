@@ -113,6 +113,32 @@ self.load = (function(self) {
 	 */
 	var _uncaughtErrors = [];
 	
+	/** Helper function for network requests
+	 * 
+	 * @param {string} url The url to get
+	 * @param {string="json"} type The responseType value
+	 * @return {Promise(*, *)} A promise that resolves to the result of that XHR request.
+	 */
+	var _xhrGet = function(url, type) {
+		return new Promise(function(fulfill, reject) {
+			var xhr = new XMLHttpRequest();
+		
+			xhr.onreadystatechange = function() {
+				if(xhr.readyState == 4 && xhr.status > 100 && xhr.status < 400) {
+					fulfill(xhr.response);
+				}else if(xhr.readyState == 4) {
+					reject(xhr);
+				}
+			}
+			
+			xhr.open("GET", url, true);
+			xhr.responseType = type?type:"json";
+			xhr.send();
+		});
+	};
+	
+	
+	
 	// Set up multithreading
 	load.worker = !("document" in self) && !("window" in self)
 	
@@ -471,54 +497,44 @@ self.load = (function(self) {
 				if(reject) reject(data);
 			}
 			
-			var xhr = new XMLHttpRequest();
-		
-			xhr.onreadystatechange = function() {
-				if(xhr.readyState == 4 && xhr.status > 100 && xhr.status < 400) {
-					var relativePath = path.split("/").slice(0, -1).join("/")+"/";
-					
-					// Hack to get the absolute path
-					var a = document.createElement("a");
-					a.href = relativePath;
-					var absolutePath = a.href;
-					
-					var data = xhr.response;
-					
-					if(typeof(data) == "string") data = JSON.parse(data);
-					
-					if(Array.isArray(data)) {
-						//Convert into new format
-						data = {"version":0, "packages":data};
-					}
-					
-					_depFiles[path] = data;
-					
-					var deps = data.packages;
-					for(var i = deps.length-1; i >= 0; i--) {
-						var now = deps[i]
-						
-						if(deps[i][0].indexOf(":") === -1 && deps[i][0][0] != "/") deps[i][0] = absolutePath+deps[i][0];
-						
-						var dlist = now[2];
-						load.addDependency(now[0], now[1], dlist, now[3], now[4]);
-					}
-					
-					if("dependencies" in data) {
-						return Promise.all(data.dependencies.map(function(e) {
-							return load.importList(e);
-						})).then(union.bind(undefined, data));
-					}else{
-						union(data);
-					}
-				}else if(xhr.readyState == 4) {
-					console.error("Error getting import file, "+xhr.statusText);
-					unione(xhr);
+			_xhrGet(path).then(function(data) {
+				var relativePath = path.split("/").slice(0, -1).join("/")+"/";
+				
+				// Hack to get the absolute path
+				var a = document.createElement("a");
+				a.href = relativePath;
+				var absolutePath = a.href;
+				
+				if(typeof(data) == "string") data = JSON.parse(data);
+				
+				if(Array.isArray(data)) {
+					//Convert into new format
+					data = {"version":0, "packages":data};
 				}
-			}
-			
-			xhr.open("GET", path, true);
-			xhr.responseType = "json";
-			xhr.send();
+				
+				_depFiles[path] = data;
+				
+				var deps = data.packages;
+				for(var i = deps.length-1; i >= 0; i--) {
+					var now = deps[i]
+					
+					if(deps[i][0].indexOf(":") === -1 && deps[i][0][0] != "/") deps[i][0] = absolutePath+deps[i][0];
+					
+					var dlist = now[2];
+					load.addDependency(now[0], now[1], dlist, now[3], now[4]);
+				}
+				
+				if("dependencies" in data) {
+					return Promise.all(data.dependencies.map(function(e) {
+						return load.importList(e);
+					})).then(union.bind(undefined, data));
+				}else{
+					union(data);
+				}
+			}, function() {
+				console.error("Error getting import file, "+xhr.statusText);
+				unione(xhr);
+			});
 		}
 		
 		return new Promise(pfunct);
@@ -659,26 +675,16 @@ self.load = (function(self) {
 				_packs[f[0][i]].state = STATE_IMPORTING;
 			}
 			
-			var xhr = new XMLHttpRequest();
-		
-			xhr.onreadystatechange = function() {
-				if(xhr.readyState == 4 && xhr.status > 100 && xhr.status < 400) {
-					var content = xhr.response;
-					
-					for(var i = 0; i < f[0].length; i ++) {
-						_packs[f[0][i]].state = STATE_RAN;
-						_packs[f[0][i]].obj = content;
-					}
-					
-					_tryImport();
-				}else if(xhr.readyState == 4) {
-					console.error("Error getting resource "+file+", "+xhr.statusText);
+			_xhrGet(file, "text").then(function(content) {
+				for(var i = 0; i < f[0].length; i ++) {
+					_packs[f[0][i]].state = STATE_RAN;
+					_packs[f[0][i]].obj = content;
 				}
-			}
-			
-			xhr.open("GET", file, true);
-			xhr.responseType = "text";
-			xhr.send();
+				
+				_tryImport();
+			}, function() {
+				console.error("Error getting resource "+file+", "+xhr.statusText);
+			});
 		}
 	};
 	
