@@ -60,7 +60,17 @@ self.load = (function(self) {
 	var NOBJ = 4;
 	var NTYPE = 5;
 	
+    /** A package of this type is executable code
+     * 
+     * It is in a file which contains a call to "load.provide" with a package name and function. The function will be
+     * called when the package is required (not when it is provided), and the return value of that function will be the
+     * package's object.
+     */
 	var TYPE_PACK = 0;
+    /** A package of this type is a string
+     * 
+     * It is in a file, which is downloaded via AJAX. The package object is a string with the contents of this file.
+     */
 	var TYPE_RES = 1;
 	
 	var USE_THREADING = false;
@@ -490,19 +500,7 @@ self.load = (function(self) {
 						if(deps[i][0].indexOf(":") === -1 && deps[i][0][0] != "/") deps[i][0] = absolutePath+deps[i][0];
 						
 						var dlist = now[2];
-						if(now.length > 4) dlist = dlist.concat(now[4]);
-						load.addDependency(now[0], now[1], dlist, now[3], TYPE_PACK);
-						
-						if(now.length > 4) {
-							for(var j = now[4].length-1; j >= 0; j--) {
-								// Convert to absolute paths
-								var fpath = now[4][j]
-								if(fpath.indexOf(":") === -1 && fpath[0] != "/") {
-									fpath = absolutePath + now[4][j];
-								}
-								load.addDependency(fpath, [now[4][j]], [], 0, TYPE_RES);
-							}
-						}
+						load.addDependency(now[0], now[1], dlist, now[3], now[4]);
 					}
 					
 					if("dependencies" in data) {
@@ -792,6 +790,7 @@ self.load = (function(self) {
 		load.abort();
 	});
 	
+    load._packs = _packs;
 	return load;
 })(self);
 
