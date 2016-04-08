@@ -2,16 +2,39 @@
 
 <html>
     <head>
+        <style>
+            iframe {
+                height:50px;
+                width:100%;
+                border:2px solid black;
+            }
+        </style>
+        
         <title>Test</title>
         
-        <script src='../Load.js'></script>
-        
         <script>
-            load.lie("deps.json", "test.ext2");
+            window.onload = function() {
+                var toTest = [
+                    "test.a",
+                    "test.b",
+                    "test.c",
+                    "test.l1",
+                    "test.l2",
+                    "test.l3",
+                    "test.ext",
+                    "test.ext2"
+                ]
+                
+                for(var i = 0; i < toTest.length; i ++) {
+                    var iframe = document.createElement("iframe");
+                    iframe.src = "testingFrame.html?pack="+toTest[i];
+                    document.querySelector("body").appendChild(iframe);
+                }
+            }
         </script>
     </head>
     
     <body>
-    
+        
     </body>
 </html>

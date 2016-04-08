@@ -3,6 +3,7 @@
 // Depends on b
 
 load.provide("test.c", function() {
+    var b = load.require("test.a");
     var b = load.require("test.b");
     var res = load.requireResource("./message.txt");
     

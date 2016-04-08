@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>Test</title>
+        
+        <style>
+            a, a:visited, a:hover {
+                text-decoration:none;
+                color:inherit;
+            }
+            
+            .okay {
+                background-color:#ffffdd;
+            }
+            
+            .bad {
+                background-color:#ffdddd;
+            }
+            
+            .good {
+                background-color:#ddffdd;
+            }
+        </style>
+        
+        <script src='../Load.js'></script>
+        
+        <script>
+            window.onload = function() {
+                var node = document.querySelector("#status");
+                var setText = function(text, state) {
+                    node.innerHTML = text;
+                    document.querySelector("body").setAttribute("class", state);
+                }
+                
+                var pack = location.search.split("pack=")[1];
+                
+                document.querySelector("#link").href = document.location;
+                
+                setText("Testing "+pack+".", "okay");
+                
+                load.lie("deps.json", pack).then(function(o) {
+                    if(o instanceof Promise) {
+                        setText(pack + " had promise! Waiting...", "okay");
+                        
+                        o.then(function(o) {
+                            setText(" promise resolved! Got \""+o+"\".", "good");
+                        }, function(e) {
+                            setText(pack + " promise errored... Got \""+e+"\".", "bad");
+                        });
+                    }else{
+                        setText(pack + " imported! Got \""+o+"\".", "good");
+                    }
+                }, function(e) {
+                    setText(pack + " errored... Got \""+e+"\".", "bad");
+                });
+                
+                window.onerror = function(e) {
+                    setText(pack + " errored... Got \""+e+"\".", "bad");
+                }
+            }
+        </script>
+    </head>
+    
+    <body class='okay'>
+        <a id='link' target='_parent'>&#128270;</a>
+        <span id='status'>Waiting...</span>
+    </body>
+</html>
