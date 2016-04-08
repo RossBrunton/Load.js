@@ -447,9 +447,11 @@ self.load = (function(self) {
 	
 	/** Marks the current file as requiring the specified external script as a dependency.
 	 * 
+	 * @param {string} name The package name for this library.
 	 * @param {string} name The path to the library to add.
+	 * @param {?array<string>} deps An array of dependencies of this library.
 	 */
-	load.requireExternal = function(name) {
+	load.requireExternal = function(name, path, deps) {
 		return load.require(name);
 	};
 	
@@ -609,7 +611,7 @@ self.load = (function(self) {
 		if(_packagesToImport.length) console.log("%cImporting: "+_packagesToImport.join(", "), "color:#999999");
 		
 		for(var i = _packagesToImport.length-1; i >= 0; i --) {
-			_doImportFile(_packs[_packagesToImport[i]].file, _packs[_packagesToImport[i]].type);
+			_doImportFile(_packs[_packagesToImport[i]].file, _packs[_packagesToImport[i]].type, _packagesToImport[i]);
 		}
 		
 		// Check for problems
@@ -624,10 +626,11 @@ self.load = (function(self) {
 	/** Adds the file to the HTML documents head in a script tag, actually importing the file.
 	 * @param {string} file The file to add. If it starts with "@" that character is stripped.
 	 * @param {int} type The type of the file; is it a resource (TYPE_RES) or package (TYPE_PACK).
+	 * @param {string} name The name of the package.
 	 * @private
 	 * @since 0.0.21-alpha
 	 */
-	var _doImportFile = function(file, type) {
+	var _doImportFile = function(file, type, pack) {
 		var f = _files[file];
 		
 		switch(type) {
@@ -691,7 +694,7 @@ self.load = (function(self) {
 						throw new load.ImportError(file+" failed to import.");
 					});
 					js.addEventListener("load", function(e) {
-						load.provideExternal(file);
+						load.provideExternal(pack);
 					});
 					document.head.appendChild(js);
 				}

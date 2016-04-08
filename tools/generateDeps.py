@@ -18,10 +18,14 @@ TYPE_PACK = 0;
 TYPE_RES = 1;
 TYPE_EXT = 2;
 
-reqPatt = re.compile(r"load\.require\(\s*\"([^\"]+?)\"", re.MULTILINE | re.DOTALL)
-reqRPatt = re.compile(r"load\.requireResource\(\s*\"([^\"]+?)\"", re.MULTILINE | re.DOTALL)
-reqEPatt = re.compile(r"load\.requireExternal\(\s*\"([^\"]+?)\"", re.MULTILINE | re.DOTALL)
-reqEAPatt = re.compile(r"load\.requireExternal\(\s*?\"([^\"]+?)\"[^)]*?,[^)]*?(\[.*?\])", re.MULTILINE | re.DOTALL)
+string = "\"([^\"\n]+?)\""
+array = "(\[[^]]*?\])"
+comma = "[^)]*?,[^)]*?"
+
+reqPatt = re.compile(r"load\.require\(\s*"+string, re.MULTILINE | re.DOTALL)
+reqRPatt = re.compile(r"load\.requireResource\(\s*"+string, re.MULTILINE | re.DOTALL)
+reqEPatt = re.compile(r"load\.requireExternal\(\s*"+string+comma+string, re.MULTILINE | re.DOTALL)
+reqEAPatt = re.compile(r"load\.requireExternal\(\s*?"+string+comma+string+comma+array, re.MULTILINE | re.DOTALL)
 
 provPatt = re.compile(r"load\.provide\(\s*\"([^\"]+?)\"", re.MULTILINE | re.DOTALL)
 provRPatt = re.compile(r"load\.provideResource\(\s*\"([^\"]+?)\"", re.MULTILINE | re.DOTALL)
@@ -68,15 +72,15 @@ for root, dirs, files in os.walk("."):
 				# load.requireExternal (arg)
 				for match in reqEAPatt.finditer(contents):
 					if match.group(1) not in pack[2]:
-						res = addPack(match.group(1), 0, TYPE_EXT)
+						res = addPack(match.group(2), 0, TYPE_EXT)
 						res[1] = [match.group(1)]
-						res[2] = json.loads(match.group(2))
+						res[2] = json.loads(match.group(3))
 						pack[2].append(match.group(1))
 					
 				# load.requireExternal (no arg)
 				for match in reqEPatt.finditer(contents):
 					if match.group(1) not in pack[2]:
-						res = addPack(match.group(1), 0, TYPE_EXT)
+						res = addPack(match.group(2), 0, TYPE_EXT)
 						res[1] = [match.group(1)]
 						pack[2].append(match.group(1))
 				
