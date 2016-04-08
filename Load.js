@@ -1,4 +1,3 @@
-//This is a part of another project I made, and modified somewhat to use in the honours project.
 "use strict";
 
 if("load" in self) {
