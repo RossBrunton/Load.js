@@ -362,7 +362,7 @@ self.load = (function(self) {
 		
 		//Set object and imported
 		if(name in _packs) {
-			_packs[name].obj = pack;
+			_packs[name].obj = data;
 			_packs[name].state = STATE_RAN;
 		}else{
 			_packs[name] = {file:"about:blank", state:STATE_RAN, deps:[], size:0, obj:data, type:TYPE_RES};
@@ -370,9 +370,6 @@ self.load = (function(self) {
 		
 		//Fire all the onImport handlers
 		_fireListeners(_onImport, name, true);
-		
-		//Set object
-		_packs[name].obj = data;
 		
 		load.evaluate(name);
 		
@@ -665,10 +662,7 @@ self.load = (function(self) {
 				}
 				
 				_xhrGet(file, "text").then(function(content) {
-					for(var i = 0; i < f[0].length; i ++) {
-						_packs[f[0][i]].state = STATE_RAN;
-						_packs[f[0][i]].obj = content;
-					}
+					load.provideResource(pack, content);
 					
 					_tryImport();
 				}, function() {
