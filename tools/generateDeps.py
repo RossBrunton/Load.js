@@ -16,9 +16,11 @@ import json
 
 TYPE_PACK = 0;
 TYPE_RES = 1;
+TYPE_EXT = 2;
 
 reqPatt = re.compile("load\.require\(\"(.*?)\"(?:,.*)?\)")
 reqRPatt = re.compile("load\.requireResource\(\"(.*?)\"(?:,.*)?\)")
+reqEPatt = re.compile("load\.requireExternal\(\"(.*?)\"(?:,.*)?\)")
 provPatt = re.compile("load\.provide\(\"(.*?)\"")
 provRPatt = re.compile("load\.provideResource\(\"(.*?)\"")
 data = []
@@ -54,6 +56,12 @@ for root, dirs, files in os.walk("."):
 					for match in reqRPatt.finditer(line):
 						if match.group(1) not in data[-1][2]:
 							res = addPack(match.group(1), 0, TYPE_RES)
+							res[1] = [match.group(1)]
+							pack[2].append(match.group(1))
+					
+					for match in reqEPatt.finditer(line):
+						if match.group(1) not in data[-1][2]:
+							res = addPack(match.group(1), 0, TYPE_EXT)
 							res[1] = [match.group(1)]
 							pack[2].append(match.group(1))
 							

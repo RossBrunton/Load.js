@@ -69,6 +69,13 @@ self.load = (function(self) {
 	 * It is in a file, which is downloaded via AJAX. The package object is a string with the contents of this file.
 	 */
 	var TYPE_RES = 1;
+	/** External resource file
+	 * 
+	 * That is, a library file that is not managed using the ``load.js`` system. It will be downloaded when required,
+	 *  and as soon as the script is executed (via the ``load`` event) it will be marked as provided, and start
+	 *  downloading anything that depends on it.
+	 */
+	var TYPE_EXT = 2;
 	
 	var USE_THREADING = false;
 	
@@ -373,6 +380,25 @@ self.load = (function(self) {
 		_tryImport();
 	};
 	
+	load.provideExternal = function(name) {
+		console.log("Provided external library "+name);
+		
+		//Set object and imported
+		if(name in _packs) {
+			_packs[name].state = STATE_RAN;
+		}else{
+			_packs[name] = {file:name, state:STATE_RAN, deps:[], size:0, obj:data, type:TYPE_RES};
+		}
+		
+		//Fire all the onImport handlers
+		_fireListeners(_onImport, name, true);
+		
+		load.evaluate(name);
+		
+		// And try to import more if possible
+		_tryImport();
+	};
+	
 	
 	
 	// ----
@@ -406,7 +432,7 @@ self.load = (function(self) {
 		
 		if(name in _packs && !defer) {
 			return load.evaluate(name);
-		}else{
+		}else if(name in _packs) {
 			_packs[name].evalOnImport = true;
 		}
 	};
@@ -414,10 +440,16 @@ self.load = (function(self) {
 	/** Marks the current file as requiring the specified resource as a dependency.
 	 * 
 	 * @param {string} name The path to the file to add.
-	 * @return {string} The string content of that resource.
-	 * @since 0.0.15-alpha
 	 */
 	load.requireResource = function(name) {
+		return load.require(name);
+	};
+	
+	/** Marks the current file as requiring the specified external script as a dependency.
+	 * 
+	 * @param {string} name The path to the library to add.
+	 */
+	load.requireExternal = function(name) {
 		return load.require(name);
 	};
 	
@@ -519,8 +551,6 @@ self.load = (function(self) {
 		for(var i = 0; i < p.deps.length; i ++) {
 			if(p.deps[i].charAt(0) == ">") {
 				_addToImportSet(p.deps[i].substring(1));
-			}else if(p.deps[i].charAt(0) == "@") {
-				_importSet.push(p.deps[i]);
 			}else{
 				_addToImportSet(p.deps[i]);
 			}
@@ -542,13 +572,6 @@ self.load = (function(self) {
 		
 		//Generate the batch set
 		for(var i = 0; i < _importSet.length; i ++) {
-			if(_importSet[i].charAt(0) == "@") {
-				_packagesToImport.push(_importSet[i]);
-				_importSet.splice(i, 1);
-				i --;
-				continue;
-			}
-			
 			var now = _packs[_importSet[i]];
 			var nowName = _importSet[i];
 			
@@ -556,8 +579,6 @@ self.load = (function(self) {
 			for(var d = 0; d < now.deps.length; d ++) {
 				if(now.deps[d].charAt(0) == ">") {
 					//Okay
-				}else if(now.deps[d].charAt(0) == "@") {
-					//Also Okay
 				}else if(!(now.deps[d] in _packs)) {
 					console.warn(now.file + " depends on "+now.deps[d]+", which is not available.");
 					okay = false;
@@ -588,11 +609,7 @@ self.load = (function(self) {
 		if(_packagesToImport.length) console.log("%cImporting: "+_packagesToImport.join(", "), "color:#999999");
 		
 		for(var i = _packagesToImport.length-1; i >= 0; i --) {
-			if(_packagesToImport[i].charAt(0) == "@") {
-				_doImportFile(_packagesToImport[i], TYPE_PACK);
-			}else{
-				_doImportFile(_packs[_packagesToImport[i]].file, _packs[_packagesToImport[i]].type);
-			}
+			_doImportFile(_packs[_packagesToImport[i]].file, _packs[_packagesToImport[i]].type);
 		}
 		
 		// Check for problems
@@ -611,50 +628,77 @@ self.load = (function(self) {
 	 * @since 0.0.21-alpha
 	 */
 	var _doImportFile = function(file, type) {
-		if(type == TYPE_PACK) {
-			if(file.charAt(0) == "@") file = file.substring(1);
-			
-			if(!(file in _files)) {
-				_files[file] = [[], [], false];
-			}
-			
-			var f = _files[file];
-			
-			if(f[2]) return;
-			f[2] = true;
-			
-			for(var i = 0; i < f[0].length; i ++) {
-				_packs[f[0][i]].state = STATE_IMPORTING;
-			}
-			
-			if(!("document" in self) && !("window" in self)) {
-				importScripts(file);
-			}else{
-				var js = document.createElement("script");
-				js.src = file;
-				js.async = true;
-				js.addEventListener("error", function(e) {
-					throw new load.ImportError(file+" failed to import.");
-				});
-				document.head.appendChild(js);
-			}
-		}else{
-			var f = _files[file];
-			
-			for(var i = 0; i < f[0].length; i ++) {
-				_packs[f[0][i]].state = STATE_IMPORTING;
-			}
-			
-			_xhrGet(file, "text").then(function(content) {
-				for(var i = 0; i < f[0].length; i ++) {
-					_packs[f[0][i]].state = STATE_RAN;
-					_packs[f[0][i]].obj = content;
+		var f = _files[file];
+		
+		switch(type) {
+			case TYPE_PACK:
+				if(!(file in _files)) {
+					_files[file] = [[], [], false];
 				}
 				
-				_tryImport();
-			}, function() {
-				console.error("Error getting resource "+file+", "+xhr.statusText);
-			});
+				if(f[2]) return;
+				f[2] = true;
+				
+				for(var i = 0; i < f[0].length; i ++) {
+					_packs[f[0][i]].state = STATE_IMPORTING;
+				}
+				
+				if(!("document" in self) && !("window" in self)) {
+					importScripts(file);
+				}else{
+					var js = document.createElement("script");
+					js.src = file;
+					js.async = true;
+					js.addEventListener("error", function(e) {
+						throw new load.ImportError(file+" failed to import.");
+					});
+					document.head.appendChild(js);
+				}
+				break;
+			
+			case TYPE_RES:
+				for(var i = 0; i < f[0].length; i ++) {
+					_packs[f[0][i]].state = STATE_IMPORTING;
+				}
+				
+				_xhrGet(file, "text").then(function(content) {
+					for(var i = 0; i < f[0].length; i ++) {
+						_packs[f[0][i]].state = STATE_RAN;
+						_packs[f[0][i]].obj = content;
+					}
+					
+					_tryImport();
+				}, function() {
+					console.error("Error getting resource "+file+", "+xhr.statusText);
+				});
+				break;
+			
+			case TYPE_EXT:
+				if(f[2]) return;
+				f[2] = true;
+				
+				for(var i = 0; i < f[0].length; i ++) {
+					_packs[f[0][i]].state = STATE_IMPORTING;
+				}
+				
+				if(!("document" in self) && !("window" in self)) {
+					importScripts(file);
+				}else{
+					var js = document.createElement("script");
+					js.src = file;
+					js.async = true;
+					js.addEventListener("error", function(e) {
+						throw new load.ImportError(file+" failed to import.");
+					});
+					js.addEventListener("load", function(e) {
+						load.provideExternal(file);
+					});
+					document.head.appendChild(js);
+				}
+				break;
+			
+			default:
+				throw new load.ImportError("Package in "+file+" is of invalid type "+type);
 		}
 	};
 	
