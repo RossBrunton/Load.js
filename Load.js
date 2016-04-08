@@ -143,6 +143,25 @@ self.load = (function(self) {
 		});
 	};
 	
+	/** Helper function for firing the various listener things
+	 * 
+	 * Basically, given an object, key and argument, calls all the functions in the array specified by the key (if it
+	 *  exists) with the argument. It then sets that array to empty.
+	 * 
+	 * @param {object} listener The object with the listeners in it.
+	 * @param {string} name The property of that object to call the listeners for.
+	 * @param {*} arg The argument to call them with.
+	 */
+	var _fireListeners = function(listener, name, arg) {
+		if(name in listener) {
+			for(var i = 0; i < listener[name].length; i ++) {
+				listener[name][i](_packs[name].obj);
+			}
+			
+			listener[name] = [];
+		}
+	};
+	
 	
 	
 	// ----
@@ -305,13 +324,7 @@ self.load = (function(self) {
 		}
 		
 		//Fire all the onImport handlers
-		if(name in _onImport) {
-			for(var i = 0; i < _onImport[name].length; i ++) {
-				_onImport[name][i](true);
-			}
-			
-			_onImport[name] = [];
-		}
+		_fireListeners(_onImport, name, true);
 		
 		// Evaluate if we need to
 		if(_packs[name].evalOnImport) {
@@ -349,13 +362,7 @@ self.load = (function(self) {
 		}
 		
 		//Fire all the onImport handlers
-		if(name in _onImport) {
-			for(var i = 0; i < _onImport[name].length; i ++) {
-				_onImport[name][i](true);
-			}
-			
-			_onImport[name] = [];
-		}
+		_fireListeners(_onImport, name, true);
 		
 		//Set object
 		_packs[name].obj = data;
@@ -451,13 +458,7 @@ self.load = (function(self) {
 		}
 		
 		//Fire all the functions
-		if(name in _readies) {
-			for(var i = 0; i < _readies[name].length; i ++) {
-				_readies[name][i](_packs[name].obj);
-			}
-			
-			_readies[name] = [];
-		}
+		_fireListeners(_readies, name, _packs[name].obj);
 		
 		return _packs[name].obj;
 	};
