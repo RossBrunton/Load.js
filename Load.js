@@ -944,10 +944,11 @@ self.load = (function(self) {
 	 * Sugar for load.import(pack).then(function() {load.evaluate(pack);})
 	 * 
 	 * @param {string} pack The package to import and then run.
+	 * @return {Promise(*)} A promise that resolves with the package.
 	 */
 	load.importAndEvaluate = function(pack) {
-		load.import(pack).then(function() {
-			load.evaluate(pack);
+		return load.import(pack).then(function() {
+			return load.evaluate(pack);
 		});
 	};
 	
@@ -959,9 +960,10 @@ self.load = (function(self) {
 	 * 
 	 * @param {string} list The package list to import.
 	 * @param {string} pack The package to import and then run.
+	 * @return {Promise(*)} A promise that resolves with the package.
 	 */
 	load.lie = function(list, pack) {
-		load.loadDeps(list).then(function() {load.importAndEvaluate(pack);});
+		return load.loadDeps(list).then(function() {return load.importAndEvaluate(pack);});
 	};
 	
 	return load;
