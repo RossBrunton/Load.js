@@ -18,11 +18,13 @@ TYPE_PACK = 0;
 TYPE_RES = 1;
 TYPE_EXT = 2;
 
-reqPatt = re.compile("load\.require\(\"(.*?)\"(?:,.*)?\)")
-reqRPatt = re.compile("load\.requireResource\(\"(.*?)\"(?:,.*)?\)")
-reqEPatt = re.compile("load\.requireExternal\(\"(.*?)\"(?:,.*)?\)")
-provPatt = re.compile("load\.provide\(\"(.*?)\"")
-provRPatt = re.compile("load\.provideResource\(\"(.*?)\"")
+reqPatt = re.compile(r"load\.require\(\s*\"(.+?)\"")
+reqRPatt = re.compile(r"load\.requireResource\(\s*\"(.+?)\"")
+reqEPatt = re.compile(r"load\.requireExternal\(\s*\"(.+?)\"")
+reqEAPatt = re.compile(r"load\.requireExternal\(\s*\"(.+?)\"\s*,\s*(\[.*\])")
+
+provPatt = re.compile(r"load\.provide\(\s*\"(.+?)\"")
+provRPatt = re.compile(r"load\.provideResource\(\s*\"(.+?)\"")
 data = []
 
 if len(sys.argv) > 1:
@@ -41,30 +43,42 @@ for root, dirs, files in os.walk("."):
 				pack = addPack(posixpath.join(root, f)[2:], os.path.getsize(os.path.join(root, f)), TYPE_PACK)
 				
 				for line in reader:
+					# load.provide
 					for match in provPatt.finditer(line):
-						if match.group(1) not in data[-1][1]:
+						if match.group(1) not in pack[1]:
 							pack[1].append(match.group(1))
 					
+					# load.provideResaurce
 					for match in provRPatt.finditer(line):
-						if match.group(1) not in data[-1][1]:
+						if match.group(1) not in pack[1]:
 							pack[1].append(match.group(1))
 					
+					# load.require
 					for match in reqPatt.finditer(line):
-						if match.group(1) not in data[-1][2]:
+						if match.group(1) not in pack[2]:
 							pack[2].append(match.group(1))
 					
+					# load.requireResource
 					for match in reqRPatt.finditer(line):
-						if match.group(1) not in data[-1][2]:
+						if match.group(1) not in pack[2]:
 							res = addPack(match.group(1), 0, TYPE_RES)
 							res[1] = [match.group(1)]
 							pack[2].append(match.group(1))
 					
+					# load.requireExternal (arg)
+					for match in reqEAPatt.finditer(line):
+						if match.group(1) not in pack[2]:
+							res = addPack(match.group(1), 0, TYPE_EXT)
+							res[1] = [match.group(1)]
+							res[2] = json.loads(match.group(2))
+							pack[2].append(match.group(1))
+						
+					# load.requireExternal (no arg)
 					for match in reqEPatt.finditer(line):
-						if match.group(1) not in data[-1][2]:
+						if match.group(1) not in pack[2]:
 							res = addPack(match.group(1), 0, TYPE_EXT)
 							res[1] = [match.group(1)]
 							pack[2].append(match.group(1))
-							
 				
 				pack[1].sort()
 				pack[2].sort()
