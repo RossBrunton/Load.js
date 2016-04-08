@@ -794,7 +794,10 @@ self.load = (function(self) {
 			}
 			
 			_xhrGet(path).then(function(data) {
-				var relativePath = path.split("/").slice(0, -1).join("/")+"/";
+				var relativePath = "./";
+				if(path.indexOf("/") !== -1) {
+					relativePath = path.split("/").slice(0, -1).join("/")+"/";
+				}
 				
 				// Hack to get the absolute path
 				var a = document.createElement("a");
