@@ -324,10 +324,10 @@ self.load = (function(self) {
 		
 		//Set object and imported
 		if(name in _packs) {
-			_packs[name].obj = pack;
+			_packs[name].obj = [pack, options];
 			_packs[name].state = STATE_IMPORTED;
 		}else{
-			_packs[name] = {file:"about:blank", state:STATE_IMPORTED, deps:[], size:0, obj:pack, type:TYPE_PACK};
+			_packs[name] = {file:"about:blank", state:STATE_IMPORTED, deps:[], size:0, obj:[pack, options], type:TYPE_PACK};
 		}
 		
 		//Fire all the onImport handlers
@@ -336,21 +336,6 @@ self.load = (function(self) {
 		// Evaluate if we need to
 		if(_packs[name].evalOnImport) {
 			load.evaluate(name);
-		}
-		
-		//Seal objects
-		if(pack && (!("noSeal" in options) || !options.noSeal)) {
-			Object.seal(pack);
-			if("prototype" in pack) {
-				Object.seal(pack.prototype);
-			}
-			
-			if("alsoSeal" in options) {
-				options.alsoSeal.forEach(function(v) {
-					Object.seal(pack[v]);
-					if("prototype" in pack[v]) Object.seal(pack[v].prototype);
-				});
-			}
 		}
 		
 		// And try to import more if possible
@@ -483,7 +468,28 @@ self.load = (function(self) {
 			var _oldCur = _currentEval;
 			_currentEval = name;
 			_packs[name].state = STATE_RUNNING;
-			_packs[name].obj = _packs[name].obj(self);
+			
+			var funct = _packs[name].obj[0];
+			var options = _packs[name].obj[1];
+			var pack = _packs[name].obj = funct(self);
+			
+			
+			//Seal objects
+			if(pack && (!("noSeal" in options) || !options.noSeal)) {
+				Object.seal(pack);
+				if(typeof pack == "object" && "prototype" in pack) {
+					Object.seal(pack.prototype);
+				}
+				
+				if("alsoSeal" in options) {
+					options.alsoSeal.forEach(function(v) {
+						Object.seal(pack[v]);
+						if("prototype" in pack[v]) Object.seal(pack[v].prototype);
+					});
+				}
+			}
+			
+			// Cleanup
 			_packs[name].state = STATE_RAN;
 			_currentEval = _oldCur;
 		}
