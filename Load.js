@@ -781,26 +781,14 @@ self.load = (function(self) {
 	
 	/** todo: Write me
 	 */
-	load.loadDepsObject = function(data, path) {
+	load.loadDepsObject = function(data, absolutePath) {
 		var pfunct = function(fulfill, reject) {
-			var relativePath = "./";
-			if(path.indexOf("/") !== -1) {
-				relativePath = path.split("/").slice(0, -1).join("/")+"/";
-			}
-			
-			// Hack to get the absolute path
-			var a = document.createElement("a");
-			a.href = relativePath;
-			var absolutePath = a.href;
-			
 			if(typeof(data) == "string") data = JSON.parse(data);
 			
 			if(Array.isArray(data)) {
 				//Convert into new format
 				data = {"version":0, "packages":data};
 			}
-			
-			_depFiles[path] = data;
 			
 			var deps = data.packages;
 			for(var i = deps.length-1; i >= 0; i--) {
@@ -841,6 +829,17 @@ self.load = (function(self) {
 		
 		console.log("%cDownloading dependancy file "+path, "color:#999999");
 		
+		// Get paths
+		var relativePath = "./";
+		if(path.indexOf("/") !== -1) {
+			relativePath = path.split("/").slice(0, -1).join("/")+"/";
+		}
+		
+		// Hack to get the absolute path
+		var a = document.createElement("a");
+		a.href = relativePath;
+		var absolutePath = a.href;
+		
 		var pfunct = function(fullfill, reject) {
 			var union = function(data) {
 				if(callback) callback(data);
@@ -853,7 +852,10 @@ self.load = (function(self) {
 			}
 			
 			_xhrGet(path).then(function(data) {
-				load.loadDepsObject(data, path).then(function(o) {union(o);}, function(e) {unione(e);});
+				load.loadDepsObject(data, absolutePath).then(function(o) {
+					_depFiles[path] = o;
+					union(o);
+				}, function(e) {unione(e);});
 			}, function() {
 				console.error("Error getting import file, "+xhr.statusText);
 				unione(xhr);
