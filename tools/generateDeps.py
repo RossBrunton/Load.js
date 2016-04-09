@@ -35,7 +35,7 @@ if len(sys.argv) > 1:
 	os.chdir(sys.argv[1])
 
 def addPack(path, size, type):
-	obj = [path, [], [], 0, type]
+	obj = [path, [], [], size, type]
 	data.append(obj)
 	
 	return obj;
@@ -65,7 +65,7 @@ for root, dirs, files in os.walk("."):
 				# load.requireResource
 				for match in reqRPatt.finditer(contents):
 					if match.group(1) not in pack[2]:
-						res = addPack(match.group(1), 0, TYPE_RES)
+						res = addPack(match.group(1), os.path.getsize(os.path.join(root, match.group(1))), TYPE_RES)
 						res[1] = [match.group(1)]
 						pack[2].append(match.group(1))
 				
