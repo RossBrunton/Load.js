@@ -49,10 +49,11 @@ self.load = (function(self) {
 	var _packs = {};
 	
 	var STATE_NONE = 0;
-	var STATE_IMPORTING = 1;
-	var STATE_IMPORTED = 2;
-	var STATE_RUNNING = 3;
-	var STATE_RAN = 4;
+	var STATE_SEEN = 1;
+	var STATE_IMPORTING = 2;
+	var STATE_IMPORTED = 3;
+	var STATE_RUNNING = 4;
+	var STATE_RAN = 5;
 	
 	/** A package of this type is executable code
 	 * 
@@ -321,14 +322,19 @@ self.load = (function(self) {
 		console.log("Provided "+name);
 		
 		if(!options) options = {};
-		
 		//Set object and imported
 		if(name in _packs) {
 			_packs[name].obj = [pack, options];
-			_packs[name].state = STATE_IMPORTED;
+			if(_packs[name].state == STATE_IMPORTING) {
+				_packs[name].state = STATE_IMPORTED;
+			}else{
+				_packs[name].state = STATE_SEEN;
+			}
 		}else{
-			_packs[name] = {file:"about:blank", state:STATE_IMPORTED, deps:[], size:0, obj:[pack, options], type:TYPE_PACK};
+			_packs[name] = {file:"about:blank", state:STATE_SEEN, deps:[], size:0, obj:[pack, options], type:TYPE_PACK};
 		}
+		
+		if(_packs[name].state == STATE_SEEN) return;
 		
 		//Fire all the onImport handlers
 		_fireListeners(_onImport, name, true);
@@ -548,7 +554,7 @@ self.load = (function(self) {
 			throw new load.DependencyError(pack + " required but not found.");
 			return;
 		}
-		if(_packs[pack].state !== STATE_NONE) return;
+		if(_packs[pack].state >= STATE_IMPORTING) return;
 		
 		_importSet.push(pack);
 		var p = _packs[pack];
@@ -604,7 +610,7 @@ self.load = (function(self) {
 			}
 			
 			if(okay) {
-				if(now.state == STATE_NONE) _packagesToImport.push(_importSet[i]);
+				if(now.state <= STATE_SEEN) _packagesToImport.push(_importSet[i]);
 				_importSet.splice(i, 1);
 				i --;
 			}
@@ -638,6 +644,14 @@ self.load = (function(self) {
 		
 		switch(type) {
 			case TYPE_PACK:
+				if(_packs[pack].state == STATE_SEEN) {
+					_packs[pack].state = STATE_IMPORTING;
+					
+					load.provide(pack, _packs[pack].obj[0], _packs[pack].obj[1]);
+					
+					break;
+				}
+				
 				if(!(file in _files)) {
 					_files[file] = [[], [], false];
 				}
@@ -748,7 +762,7 @@ self.load = (function(self) {
 		
 		for(var i = provided.length-1; i >= 0; i--) {
 			if(!_packs[provided[i]]
-			|| (_packs[provided[i]].state == STATE_NONE &&
+			|| (_packs[provided[i]].state <= STATE_NONE &&
 				(!(_packs[provided[i]].file in _files) || provided.length > _files[_packs[provided[i]].file][0].length))
 			){
 				_packs[provided[i]] = {file:file, state:STATE_NONE, deps:required, size:size, obj:undefined, type:type};
