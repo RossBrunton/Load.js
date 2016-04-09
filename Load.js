@@ -779,6 +779,51 @@ self.load = (function(self) {
 		_files[file] = [provided, required, false];
 	};
 	
+	/** todo: Write me
+	 */
+	load.loadDepsObject = function(data, path) {
+		var pfunct = function(fulfill, reject) {
+			var relativePath = "./";
+			if(path.indexOf("/") !== -1) {
+				relativePath = path.split("/").slice(0, -1).join("/")+"/";
+			}
+			
+			// Hack to get the absolute path
+			var a = document.createElement("a");
+			a.href = relativePath;
+			var absolutePath = a.href;
+			
+			if(typeof(data) == "string") data = JSON.parse(data);
+			
+			if(Array.isArray(data)) {
+				//Convert into new format
+				data = {"version":0, "packages":data};
+			}
+			
+			_depFiles[path] = data;
+			
+			var deps = data.packages;
+			for(var i = deps.length-1; i >= 0; i--) {
+				var now = deps[i]
+				
+				if(deps[i][0].indexOf(":") === -1 && deps[i][0][0] != "/") deps[i][0] = absolutePath+deps[i][0];
+				
+				var dlist = now[2];
+				load.addDependency(now[0], now[1], dlist, now[3], now[4]);
+			}
+			
+			if("dependencies" in data) {
+				return Promise.all(data.dependencies.map(function(e) {
+					return load.loadDeps(e);
+				})).then(fulfill.bind(undefined, data));
+			}else{
+				fulfill(data);
+			}
+		};
+		
+		return new Promise(pfunct);
+	};
+	
 	/** Download a JSON containing an array of dependancies. These will be looped through,
 	 *  and the entries will be given to `{@link load.addDependency}`.
 	 * 
@@ -808,42 +853,7 @@ self.load = (function(self) {
 			}
 			
 			_xhrGet(path).then(function(data) {
-				var relativePath = "./";
-				if(path.indexOf("/") !== -1) {
-					relativePath = path.split("/").slice(0, -1).join("/")+"/";
-				}
-				
-				// Hack to get the absolute path
-				var a = document.createElement("a");
-				a.href = relativePath;
-				var absolutePath = a.href;
-				
-				if(typeof(data) == "string") data = JSON.parse(data);
-				
-				if(Array.isArray(data)) {
-					//Convert into new format
-					data = {"version":0, "packages":data};
-				}
-				
-				_depFiles[path] = data;
-				
-				var deps = data.packages;
-				for(var i = deps.length-1; i >= 0; i--) {
-					var now = deps[i]
-					
-					if(deps[i][0].indexOf(":") === -1 && deps[i][0][0] != "/") deps[i][0] = absolutePath+deps[i][0];
-					
-					var dlist = now[2];
-					load.addDependency(now[0], now[1], dlist, now[3], now[4]);
-				}
-				
-				if("dependencies" in data) {
-					return Promise.all(data.dependencies.map(function(e) {
-						return load.loadDeps(e);
-					})).then(union.bind(undefined, data));
-				}else{
-					union(data);
-				}
+				load.loadDepsObject(data, path).then(function(o) {union(o);}, function(e) {unione(e);});
 			}, function() {
 				console.error("Error getting import file, "+xhr.statusText);
 				unione(xhr);
