@@ -903,23 +903,17 @@ self.load = (function(self) {
 	// Bells and Whistles
 	// ----
 	/** Returns the total size of files that are being downloaded, if the deps file has this information.
-	 * @return {integer} The total download remaining, in kilobytes.
-	 * @private
+	 * @return {integer} The total download remaining, in bytes.
 	 * @since 0.0.20-alpha
 	 */
-	var _getBytes = function() {
+	load.getBytes = function() {
 		var seen = [];
 		var sum = 0;
 		for(var i = _importSet.length-1; i >= 0; i --) {
-			if(_packs[_importSet[i]].length > 3
-			&& seen.indexOf(_packs[_importSet[i]].file) === -1) {
-				sum += _packs[_importSet[i]].size;
-				seen[seen.length] = _packs[_importSet[i]][0];
-			}
+			sum += _packs[_importSet[i]].size;
 		};
-		return ~~(sum/1024);
+		return sum;
 	};
-	
 	
 	
 	// ----
