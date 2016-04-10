@@ -732,7 +732,7 @@ self.load = (function(self) {
 	 * @since 0.0.20-alpha
 	 */
 	load.isImported = function(name) {
-		if(name in _packs && _packs[name].state >= STATE_RAN) {
+		if(name in _packs && _packs[name].state >= STATE_IMPORTED) {
 			return true;
 		}
 		
@@ -863,6 +863,10 @@ self.load = (function(self) {
 		}
 		
 		return new Promise(pfunct);
+	};
+	
+	load.alsoDepends = function(pack, extraDeps) {
+		_packs[pack].deps = _packs[pack].deps.concat(extraDeps);
 	};
 	
 	

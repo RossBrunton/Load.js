@@ -12,7 +12,7 @@ import re
 import json
 from six import string_types
 
-class LoadHandler():
+class LoadHandler(object):
     """ Override this class to change how the LoadState works """
     def load_file(self, state, file, packs, type):
         state.printMsg("Loading file "+file)
@@ -24,14 +24,14 @@ class LoadHandler():
     def evaluate(self, state, pack, type):
         state.printMsg("Evaluating "+pack)
         
-        for p in state.getDependancies(pack):
+        for p in state.getDependencies(pack):
             state.require(p)
         
         state.printMsg("Done evaluating "+pack)
 
 
 
-class LoadState():
+class LoadState(object):
     STATE_NONE = 0
     STATE_SEEN = 1
     STATE_IMPORTING = 2
@@ -239,7 +239,7 @@ class LoadState():
         
         for d in deps:
             if ":" not in d[0] and not d[0].startswith("/"):
-                d[0] = absolutePath + d[0]
+                d[0] = path.join(absolutePath, d[0])
             
             self.addDependency(d[0], d[1], d[2], d[3], d[4])
         
@@ -266,5 +266,5 @@ class LoadState():
         self.importAndEvaluate(pack)
     
     
-    def getDependancies(self, pack):
+    def getDependencies(self, pack):
         return self._packs[pack]["deps"]
