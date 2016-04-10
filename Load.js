@@ -322,6 +322,7 @@ self.load = (function(self) {
 		console.log("Provided "+name);
 		
 		if(!options) options = {};
+		
 		//Set object and imported
 		if(name in _packs) {
 			_packs[name].obj = [pack, options];
@@ -368,14 +369,19 @@ self.load = (function(self) {
 		_tryImport();
 	};
 	
-	load.provideExternal = function(name) {
+	load.provideExternal = function(name, script) {
 		console.log("Provided external library "+name);
 		
 		//Set object and imported
 		if(name in _packs) {
-			_packs[name].state = STATE_RAN;
+			_packs[name].obj = script;
+			if(_packs[name].state == STATE_IMPORTING) {
+				_packs[name].state = STATE_IMPORTED;
+			}else{
+				_packs[name].state = STATE_SEEN;
+			}
 		}else{
-			_packs[name] = {file:name, state:STATE_RAN, deps:[], size:0, obj:data, type:TYPE_RES};
+			_packs[name] = {file:"about:blank", state:STATE_SEEN, deps:[], size:0, obj:script, type:TYPE_EXT};
 		}
 		
 		//Fire all the onImport handlers
@@ -691,6 +697,18 @@ self.load = (function(self) {
 				break;
 			
 			case TYPE_EXT:
+				if(_packs[pack].state == STATE_SEEN) {
+					_packs[pack].state = STATE_IMPORTING;
+					
+					var js = document.createElement("script");
+					js.innerHTML = _packs[pack].obj;
+					document.head.appendChild(js);
+					
+					load.provideExternal(pack);
+					
+					break;
+				}
+				
 				if(f[2]) return;
 				f[2] = true;
 				
