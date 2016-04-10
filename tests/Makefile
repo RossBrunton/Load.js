@@ -1,5 +1,5 @@
 all: deps
 
 deps:
-	../tools/generateDeps.py . > ./deps.json
+	../tools/generateDeps.py .. . > ./deps.json
 
