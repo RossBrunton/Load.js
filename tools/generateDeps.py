@@ -44,7 +44,12 @@ def handlePath(f):
     return posixpath.relpath(f, rel)
 
 def addPack(path, size, type):
-    obj = [handlePath(path), [], [], size, type]
+    path = handlePath(path)
+    for p in data:
+        if p[0] == path:
+            return p
+    
+    obj = [path, set(), set(), size, type]
     data.append(obj)
     
     return obj;
@@ -59,44 +64,48 @@ for root, dirs, files in os.walk(sys.argv[1]):
                 # load.provide
                 for match in provPatt.finditer(contents):
                     if match.group(1) not in pack[1]:
-                        pack[1].append(match.group(1))
+                        pack[1].add(match.group(1))
                 
-                # load.provideResaurce
+                # load.provideResource
                 for match in provRPatt.finditer(contents):
                     if match.group(1) not in pack[1]:
-                        pack[1].append(match.group(1))
+                        pack[1].add(match.group(1))
                 
                 # load.require
                 for match in reqPatt.finditer(contents):
                     if match.group(1) not in pack[2]:
-                        pack[2].append(match.group(1))
+                        pack[2].add(match.group(1))
                 
                 # load.requireResource
                 for match in reqRPatt.finditer(contents):
+                    location = posixpath.join(root, match.group(1))
                     if match.group(1) not in pack[2]:
-                        location = posixpath.join(root, match.group(1))
-                        
                         res = addPack(location, os.path.getsize(os.path.join(root, match.group(1))), TYPE_RES)
-                        res[1] = [match.group(1)]
-                        pack[2].append(match.group(1))
+                        res[1].add(match.group(1))
+                        pack[2].add(match.group(1))
                 
                 # load.requireExternal (arg)
                 for match in reqEAPatt.finditer(contents):
                     if match.group(1) not in pack[2]:
                         res = addPack(match.group(2), 0, TYPE_EXT)
-                        res[1] = [match.group(1)]
-                        res[2] = json.loads(match.group(3))
-                        pack[2].append(match.group(1))
-                    
+                        res[1].add(match.group(1))
+                        res[2].update(json.loads(match.group(3)))
+                        pack[2].add(match.group(1))
+                
                 # load.requireExternal (no arg)
                 for match in reqEPatt.finditer(contents):
                     if match.group(1) not in pack[2]:
                         res = addPack(match.group(2), 0, TYPE_EXT)
-                        res[1] = [match.group(1)]
-                        pack[2].append(match.group(1))
+                        res[1].add(match.group(1))
+                        pack[2].add(match.group(1))
                 
-                pack[1].sort()
-                pack[2].sort()
+                
+
+for x in data:
+    x[1] = list(x[1])
+    x[1].sort()
+    x[2] = list(x[2])
+    x[2].sort()
 
 export = {"version":1, "packages":data}
 if len(sys.argv) >= 4:

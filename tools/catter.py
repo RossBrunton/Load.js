@@ -32,7 +32,8 @@ class Handler(LoadHandler):
             with open(file) as f:
                 buff = f.read()
             
-            stdout.write('load.provideResource("{}", atob("{}"));\n\n'.format(packs[0], b64encode(buff)))
+            for p in packs:
+                stdout.write('load.provideResource("{}", atob("{}"));\n\n'.format(p, b64encode(buff)))
         
         
         if type == LoadState.TYPE_EXT:

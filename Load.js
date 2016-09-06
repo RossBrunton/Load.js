@@ -64,12 +64,14 @@ self.load = (function(self) {
      * The package's object will be the function itself before it is evaluated. Whether or not it is the function is
      *  given by the state; if it is imported, it will be the function, if it is ran, it will be the object.
      * @memberof load
+     * @private
      */
     var TYPE_PACK = 0;
     /** A package of this type is a string
      * 
      * It is in a file, which is downloaded via AJAX. The package object is a string with the contents of this file.
      * @memberof load
+     * @private
      */
     var TYPE_RES = 1;
     /** External resource file
@@ -78,6 +80,7 @@ self.load = (function(self) {
      *  and as soon as the script is executed (via the ``load`` event) it will be marked as provided, and start
      *  downloading anything that depends on it.
      * @memberof load
+     * @private
      */
     var TYPE_EXT = 2;
     

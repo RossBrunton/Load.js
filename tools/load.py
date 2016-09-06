@@ -65,7 +65,7 @@ class LoadState(object):
         self.printMsg("Provided "+name)
         
         if name in self._packs:
-            if self._packs[name]["state"] == LoadState.STATE_IMPORTING:
+            if self._packs[name]["state"] >= LoadState.STATE_IMPORTING:
                 self._packs[name]["state"] = LoadState.STATE_IMPORTED
             else:
                 self._packs[name]["state"] = LoadState.STATE_SEEN
@@ -193,7 +193,7 @@ class LoadState(object):
             self.provide(pack, type)
         else:
             if file not in self._files:
-                self._files[file] = [[], [], false]
+                self._files[file] = [[], [], False]
             
             if f[2]:
                 return
