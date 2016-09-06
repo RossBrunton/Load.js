@@ -42,6 +42,7 @@ class LoadState(object):
     TYPE_PACK = 0
     TYPE_RES = 1
     TYPE_EXT = 2
+    TYPE_BINRES = 3
     
     def __init__(self, handler=None, noisy=False):
         self._packs = {}

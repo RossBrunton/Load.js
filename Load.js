@@ -83,6 +83,14 @@ self.load = (function(self) {
      * @private
      */
     var TYPE_EXT = 2;
+    /** Binary resource file
+     *
+     * This is identical to TYPE_RES, but the value will be a Blob instead of a string.
+     * @memberof load
+     * @private
+     */
+    var TYPE_BINRES = 3;
+    
     
     var USE_THREADING = false;
     
@@ -413,6 +421,45 @@ self.load = (function(self) {
         _tryImport();
     };
     
+    /** Provides a binary resource
+     *
+     * This is similar to `{@link load.provide}`, only it provides a binary resource rather than an evalutaion function.
+     *
+     * @param {string} name The namespace to provide.
+     * @param {(Blob|string)} data The data of this package. May be a base64 encoded string, in which case it is
+     *  converted into a blob.
+     * @memberof load
+     */
+    load.provideBinaryResource = function(name, data) {
+        _log("Provided binary resource: "+name);
+        
+        if(typeof data === "string") {
+            // This is a horrible, horrible hack, but there is no other way of doing it
+            var str = atob(data);
+            var ta = new Uint8Array(str.length);
+            for(var i = 0; i < str.length; i ++) {
+                ta[i] = str.charCodeAt(i);
+            }
+            data = new Blob([ta], {type:"application/octet-stream"});
+        }
+        
+        //Set object and imported
+        if(name in _packs) {
+            _packs[name].obj = data;
+            _packs[name].state = STATE_RAN;
+        }else{
+            _packs[name] = {file:"about:blank", state:STATE_RAN, deps:[], size:0, obj:data, type:TYPE_BINRES};
+        }
+        
+        //Fire all the onImport handlers
+        _fireListeners(_onImport, name, true);
+        
+        load.evaluate(name);
+        
+        // And try to import more if possible
+        _tryImport();
+    };
+    
     /** Marks an external resource as being 
      *
      * This is similar to `{@link load.provide}`, only it only marks a resource as provided (that is, it doesn't do that
@@ -488,6 +535,15 @@ self.load = (function(self) {
      * @memberof load
      */
     load.requireResource = function(name) {
+        return load.require(name);
+    };
+    
+    /** Marks the current file as requiring the specified binary resource as a dependency.
+     * 
+     * @param {string} name The path to the file to add.
+     * @memberof load
+     */
+    load.requireBinaryResource = function(name) {
         return load.require(name);
     };
     
@@ -755,6 +811,18 @@ self.load = (function(self) {
                     load.provideResource(pack, content);
                 }, function() {
                     console.error("Error getting resource "+file+", "+xhr.statusText);
+                });
+                break;
+            
+            case TYPE_BINRES:
+                for(var i = 0; i < f[0].length; i ++) {
+                    _packs[f[0][i]].state = STATE_IMPORTING;
+                }
+                
+                _xhrGet(file, "blob").then(function(content) {
+                    load.provideBinaryResource(pack, content);
+                }, function() {
+                    console.error("Error getting binary resource "+file+", "+xhr.statusText);
                 });
                 break;
             

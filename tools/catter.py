@@ -36,6 +36,14 @@ class Handler(LoadHandler):
                 stdout.write('load.provideResource("{}", atob("{}"));\n\n'.format(p, b64encode(buff)))
         
         
+        if type == LoadState.TYPE_BINRES:
+            with open(file, "rb") as f:
+                buff = f.read()
+            
+            for p in packs:
+                stdout.write('load.provideBinaryResource("{}", "{}");\n\n'.format(p, b64encode(buff)))
+        
+        
         if type == LoadState.TYPE_EXT:
             for p in packs:
                 deps = state.getDependencies(p)

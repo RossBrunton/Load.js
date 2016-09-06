@@ -18,6 +18,7 @@ import json
 TYPE_PACK = 0;
 TYPE_RES = 1;
 TYPE_EXT = 2;
+TYPE_BINRES = 3;
 
 string = "\"([^\"\n]+?)\""
 array = "(\[[^]]*?\])"
@@ -25,11 +26,13 @@ comma = "[^)]*?,[^)]*?"
 
 reqPatt = re.compile(r"load\.require\(\s*"+string, re.MULTILINE | re.DOTALL)
 reqRPatt = re.compile(r"load\.requireResource\(\s*"+string, re.MULTILINE | re.DOTALL)
+reqBRPatt = re.compile(r"load\.requireBinaryResource\(\s*"+string, re.MULTILINE | re.DOTALL)
 reqEPatt = re.compile(r"load\.requireExternal\(\s*"+string+comma+string, re.MULTILINE | re.DOTALL)
 reqEAPatt = re.compile(r"load\.requireExternal\(\s*?"+string+comma+string+comma+array, re.MULTILINE | re.DOTALL)
 
 provPatt = re.compile(r"load\.provide\(\s*"+string, re.MULTILINE | re.DOTALL)
 provRPatt = re.compile(r"load\.provideResource\(\s*\"([^\"]+?)\"", re.MULTILINE | re.DOTALL)
+provBRPatt = re.compile(r"load\.provideBinaryResource\(\s*\"([^\"]+?)\"", re.MULTILINE | re.DOTALL)
 data = []
 
 rel = sys.argv[1]
@@ -71,6 +74,11 @@ for root, dirs, files in os.walk(sys.argv[1]):
                     if match.group(1) not in pack[1]:
                         pack[1].add(match.group(1))
                 
+                # load.provideBinaryResource
+                for match in provBRPatt.finditer(contents):
+                    if match.group(1) not in pack[1]:
+                        pack[1].add(match.group(1))
+                
                 # load.require
                 for match in reqPatt.finditer(contents):
                     if match.group(1) not in pack[2]:
@@ -81,6 +89,14 @@ for root, dirs, files in os.walk(sys.argv[1]):
                     location = posixpath.join(root, match.group(1))
                     if match.group(1) not in pack[2]:
                         res = addPack(location, os.path.getsize(os.path.join(root, match.group(1))), TYPE_RES)
+                        res[1].add(match.group(1))
+                        pack[2].add(match.group(1))
+                
+                # load.requireBinaryResource
+                for match in reqBRPatt.finditer(contents):
+                    location = posixpath.join(root, match.group(1))
+                    if match.group(1) not in pack[2]:
+                        res = addPack(location, os.path.getsize(os.path.join(root, match.group(1))), TYPE_BINRES)
                         res[1].add(match.group(1))
                         pack[2].add(match.group(1))
                 
