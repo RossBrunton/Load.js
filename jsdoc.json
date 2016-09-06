@@ -1,0 +1,9 @@
+{
+	"plugins":["plugins/markdown"],
+	"source":{
+		"include":["Load.js", "README.md"]
+	},
+	"opts":{
+		"destination":"doc"
+	}
+}

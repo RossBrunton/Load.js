@@ -1,3 +1,4 @@
 *.pyo
 *.pyc
 deps.json
+doc
