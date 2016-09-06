@@ -177,6 +177,7 @@ self.load = (function(self) {
      * @param {string} name The property of that object to call the listeners for.
      * @param {*} arg The argument to call them with.
      * @memberof load
+     * @private
      */
     var _fireListeners = function(listener, name, arg) {
         if(name in listener) {
@@ -504,6 +505,7 @@ self.load = (function(self) {
      * @param {?function(*)} onReady If the package isn't imported yet (via it beginning with ">" for example), this
      *  will be called with the package when it is.
      * @return {*} An object that is provided by that namespace.
+     * @function
      * @memberof load
      */
     load.suggest = load.require;

@@ -8,7 +8,6 @@ def arr_join(arr):
     return ", ".join(map(lambda x: "\"{}\"".format(x), arr))
 
 class Handler(LoadHandler):
-    """ Override this class to change how the LoadState works """
     def load_file(self, state, file, packs, type):
         super(Handler, self).load_file(state, file, packs, type)
         
@@ -50,8 +49,11 @@ class Handler(LoadHandler):
     def evaluate(self, state, pack, type):
         super(Handler, self).evaluate(state, pack, type)
 
-ls = LoadState(handler=Handler())
+if len(argv) != 3:
+    print("Usage: catter.py deps.json pack")
+    exit(1)
 
+ls = LoadState(handler=Handler())
 ls.loadDeps(argv[1])
 
 ls.importAndEvaluate("load")
