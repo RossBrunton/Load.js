@@ -127,12 +127,11 @@ self.load = (function(self) {
      */
     var _uncaughtErrors = [];
     
-    /** If true, all messages will be supressed
+    /** If false, all messages will be supressed
      * @type boolean
-     * @private
      * @default false
      */
-    var _noisy = false;
+    load.noisy = true;
     
     /** Helper function for network requests
      * 
@@ -182,7 +181,7 @@ self.load = (function(self) {
      * @param {string} message The message to log
      */
     var _log = function(message) {
-        if(!_noisy) console.log("%c"+message, "color:#999999");
+        if(load.noisy) console.log("%c"+message, "color:#999999");
     }
     
     
