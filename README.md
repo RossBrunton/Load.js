@@ -61,6 +61,8 @@ tools/generateDeps.py . > deps.json
 There are two other package types that can be used:
 - Resources: These are simply text files, requiring a package (via `load.requireResource("/path/to/file.txt")`) of this
  type gets you a string with its content, rather than trying to execute it as JS.
+- Binary Resources: Like regular resources, only they get returned as a Blob, rather than a string. This requires
+support for binary XHR requests in the browser.
 - External libraries: These are scripts that are not neatly divided into packages (their loss), they are included via
  `load.requireExternal(name, url, deps)`, which returns nothing. The arguments are as follows:
   - `name`: A string package name, for example `"jquery"`. Two packages (external or not) with the same name are the same
