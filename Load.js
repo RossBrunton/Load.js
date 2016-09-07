@@ -146,6 +146,9 @@ self.load = (function(self) {
      */
     var _uncaughtErrors = [];
     
+    var _defered = [];
+    var _importStackSize = 0;
+    
     /** If false, all messages will be supressed
      * @type boolean
      * @default true
@@ -384,11 +387,6 @@ self.load = (function(self) {
         //Fire all the onImport handlers
         _fireListeners(_onImport, name, true);
         
-        // Evaluate if we need to
-        if(_packs[name].evalOnImport) {
-            load.evaluate(name);
-        }
-        
         // And try to import more if possible
         _tryImport();
     };
@@ -511,7 +509,10 @@ self.load = (function(self) {
      */
     load.require = function(name, onReady) {
         var defer = name.charAt(0) == ">";
+        var ret;
         if(name.charAt(0) == ">") name = name.substring(1);
+        
+        if(!defer) _importStackSize ++;
         
         if(onReady) {
             if(name in _packs && _packs[name].state >= STATE_RAN) {
@@ -523,10 +524,18 @@ self.load = (function(self) {
         }
         
         if(name in _packs && !defer) {
-            return load.evaluate(name);
+            ret = load.evaluate(name);
         }else if(name in _packs) {
-            _packs[name].evalOnImport = true;
+            _defered.push(name);
         }
+        
+        if(!defer) _importStackSize --;
+        
+        if(_importStackSize == 0 && _defered.length) {
+            load.require(_defered.pop());
+        }
+        
+        return ret;
     };
     
     /** Marks the current file as requiring the specified resource as a dependency.

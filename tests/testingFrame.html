@@ -44,12 +44,16 @@
                         setText(pack + " had promise! Waiting...", "okay");
                         
                         o.then(function(o) {
-                            setText(" promise resolved! Got \""+o+"\".", "good");
+                            setText(pack + " promise resolved! Got \""+o+"\".", "good");
                         }, function(e) {
                             setText(pack + " promise errored... Got \""+e+"\".", "bad");
                         });
                     }else{
-                        setText(pack + " imported! Got \""+o+"\".", "good");
+                        if(o === undefined) {
+                            setText(pack + " imported but got falsey value... Got \""+o+"\".", "bad");
+                        }else{
+                            setText(pack + " imported! Got \""+o+"\".", "good");
+                        }
                     }
                 }, function(e) {
                     setText(pack + " errored... Got \""+e+"\".", "bad");

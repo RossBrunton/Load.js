@@ -51,6 +51,8 @@ class LoadState(object):
         self._depFiles = {}
         self._currentEval = None
         self._noisy = noisy
+        self._defered = []
+        self._importStackSize = 0
         if handler:
             self._handler = handler
         else:
@@ -83,22 +85,30 @@ class LoadState(object):
         if self._packs[name]["state"] == LoadState.STATE_SEEN:
             return
         
-        if self._packs[name]["evalOnImport"]:
-            self.evaluate(name)
-        
         self._tryImport()
     
     
     def require(self, name):
         defer = name.startswith(">")
+        ret = None
         if defer:
             name = name[1:]
         
+        if not defer: self._importStackSize += 1
+        
         if name in self._packs:
             if not defer:
-                self.evaluate(name)
+                ret = self.evaluate(name)
             else:
-                self._packs[name]["evalOnImport"] = True
+                self._defered.append(name)
+        
+        
+        if not defer: self._importStackSize -= 1
+        
+        if self._importStackSize == 0 and self._defered:
+            self.require(self._defered.pop())
+        
+        return ret;
     
     
     def evaluate(self, name):
