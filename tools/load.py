@@ -8,6 +8,7 @@ module provides many methods of that package in Python with the same names and s
 
 import os
 from os import path
+from sys import stderr
 import re
 import json
 from six import string_types
@@ -52,7 +53,7 @@ class LoadState(object):
         self._currentEval = None
         self._noisy = noisy
         self._defered = []
-        self._importStackSize = 0
+        self._importStack = []
         if handler:
             self._handler = handler
         else:
@@ -94,7 +95,12 @@ class LoadState(object):
         if defer:
             name = name[1:]
         
-        if not defer: self._importStackSize += 1
+        if not defer: self._importStack.append(name)
+        
+        if not defer and self._packs[name].state == STATE_RUNNING:
+            stderr.writeln("Unsatisfiable dependence with {}, require chain has loops. ({})"
+                .format(name, " > ".join(_importStack)))
+        }
         
         if name in self._packs:
             if not defer:
@@ -103,9 +109,9 @@ class LoadState(object):
                 self._defered.append(name)
         
         
-        if not defer: self._importStackSize -= 1
+        if not defer: self._importStack.pop()
         
-        if self._importStackSize == 0 and self._defered:
+        if len(self._importStack) == 0 and self._defered:
             self.require(self._defered.pop())
         
         return ret;

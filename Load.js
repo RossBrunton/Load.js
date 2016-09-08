@@ -147,7 +147,7 @@ self.load = (function(self) {
     var _uncaughtErrors = [];
     
     var _defered = [];
-    var _importStackSize = 0;
+    var _importStack = [];
     
     /** If false, all messages will be supressed
      * @type boolean
@@ -512,7 +512,12 @@ self.load = (function(self) {
         var ret;
         if(name.charAt(0) == ">") name = name.substring(1);
         
-        if(!defer) _importStackSize ++;
+        if(!defer) _importStack.push(name);
+        
+        if(!defer && _packs[name].state == STATE_RUNNING) {
+            throw new load.ImportError("Unsatisfiable dependence with "+name+", require chain has loops."
+                + " ("+_importStack.join(" > ")+")");
+        }
         
         if(onReady) {
             if(name in _packs && _packs[name].state >= STATE_RAN) {
@@ -529,9 +534,9 @@ self.load = (function(self) {
             _defered.push(name);
         }
         
-        if(!defer) _importStackSize --;
+        if(!defer) _importStack.pop();
         
-        if(_importStackSize == 0 && _defered.length) {
+        if(_importStack.length == 0 && _defered.length) {
             load.require(_defered.pop());
         }
         
