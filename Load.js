@@ -581,7 +581,22 @@ self.load = (function(self) {
      * @function
      * @memberof load
      */
-    load.suggest = load.require;
+    load.suggest = function(name, onReady) {
+        if(name.charAt(0) == ">") name = name.substring(1);
+        
+        if(onReady) {
+            if(name in _packs && _packs[name].state >= STATE_RAN) {
+                onReady(load.require(name));
+            }else{
+                if(!(name in _readies)) _readies[name] = [];
+                _readies[name].push(onReady);
+            }
+        }
+        
+        if(_packs[name].state >= STATE_RAN) {
+            return load.require(name);
+        }
+    }
     
     
     
